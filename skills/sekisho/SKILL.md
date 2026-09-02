@@ -46,6 +46,6 @@ Paste the summary line in your report. Quote the FAIL line verbatim; never parap
 }
 ```
 
-`{plugin}` expands to the plugin root, `{changed}` to the quoted changed files. `requires` names a path that must exist for the gate to be considered installed.
+`{plugin}` expands to the plugin root, `{changed}` to the quoted changed files, `{config}` to the config path in use. `requires` names a path that must exist for the gate to be considered installed.
 
 Exit codes: `0` all executed gates passed · `1` a gate failed · `2` config/usage error.

@@ -1,4 +1,6 @@
-.jig/
+.jig/gate_log.jsonl
 __pycache__/
 *.pyc
 .DS_Store
+scratch/
+tmp/

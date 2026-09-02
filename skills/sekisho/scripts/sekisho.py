@@ -36,6 +36,8 @@ def not_installed(gate, cmd, root):
     if req and not os.path.exists(os.path.join(root, req)):
         return f"requires {req}"
     for tok in shlex.split(cmd):
+        if any(ch in tok for ch in "$*?{"):
+            continue   # shell variable or glob: cannot be judged statically, so never excluded on that basis
         if "/" in tok and tok.endswith((".py", ".sh", ".mjs", ".js", ".rb")) and not os.path.exists(os.path.join(root, tok)) and not os.path.isabs(tok):
             return f"{tok} missing"
         if os.path.isabs(tok) and tok.endswith((".py", ".sh", ".mjs", ".js", ".rb")) and not os.path.exists(tok):
@@ -43,13 +45,14 @@ def not_installed(gate, cmd, root):
     return None
 
 
-def plan(cfg, tier, changed, root="."):
+def plan(cfg, tier, changed, root=".", config_path="jig.json"):
     tiers = cfg.get("gates", {})
     if tier not in tiers:
         sys.exit(f"config error: tier '{tier}' not defined (available: {', '.join(tiers) or 'none'})")
     entries = []
     for g in tiers[tier]:
-        cmd = g["cmd"].replace("{plugin}", PLUGIN_ROOT).replace("{changed}", " ".join(shlex.quote(f) for f in changed))
+        cmd = (g["cmd"].replace("{plugin}", PLUGIN_ROOT).replace("{config}", shlex.quote(config_path))
+               .replace("{changed}", " ".join(shlex.quote(f) for f in changed)))
         entries.append({"name": g["name"], "cmd": cmd, "skip": not_installed(g, cmd, root)})
     return entries
 
@@ -84,15 +87,18 @@ def selftest():
     with tempfile.TemporaryDirectory() as d:
         cfg = {"log": "log.jsonl", "gates": {"commit": [
             {"name": "ok", "cmd": "true"}, {"name": "bad", "cmd": "exit 3"},
-            {"name": "gone", "cmd": "python3 tools/none.py"}, {"name": "needs", "cmd": "true", "requires": "tests"}]}}
-        entries = plan(cfg, "commit", ["a.py"], root=d)
-        assert [e["skip"] is not None for e in entries] == [False, False, True, True]; n += 1
+            {"name": "gone", "cmd": "python3 tools/none.py"}, {"name": "needs", "cmd": "true", "requires": "tests"},
+            {"name": "cfg", "cmd": "test -n {config}"},
+            {"name": "loop", "cmd": "for s in a b; do echo skills/$s/scripts/$s.py; done"}]}}
+        entries = plan(cfg, "commit", ["a.py"], root=d, config_path="my.json")
+        assert entries[4]["cmd"] == "test -n my.json"; n += 1
+        assert [e["skip"] is not None for e in entries] == [False, False, True, True, False, False]; n += 1   # $s is not a missing file
         lines = []
         results, failed, skipped = run(entries, "commit", root=d, out=lines.append)
-        assert results == {"ok": "pass", "bad": "fail", "gone": "skip", "needs": "skip"}; n += 1
+        assert results == {"ok": "pass", "bad": "fail", "gone": "skip", "needs": "skip", "cfg": "pass", "loop": "pass"}; n += 1
         assert failed == ["bad"] and skipped == ["gone", "needs"]; n += 1
         assert any(l.startswith("excluded as not installed: 2") for l in lines); n += 1   # skipped gates are always listed
-        assert lines[-1] == "=== 1 PASS / 1 FAIL / 2 SKIP (tier=commit) ==="; n += 1
+        assert lines[-1] == "=== 3 PASS / 1 FAIL / 2 SKIP (tier=commit) ==="; n += 1
         try:
             plan(cfg, "release", [], root=d); assert False
         except SystemExit as e:
@@ -117,7 +123,7 @@ def main(argv=None):
     if not a.tier:
         ap.error("--tier is required (or use --selftest)")
     cfg = load_config(a.config)
-    entries = plan(cfg, a.tier, a.changed)
+    entries = plan(cfg, a.tier, a.changed, config_path=a.config)
     if a.dry_run:
         print(f"== SEKISHO tier={a.tier} (dry run) ==")
         for e in entries:
