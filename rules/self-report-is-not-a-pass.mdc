@@ -1,0 +1,10 @@
+---
+description: Exit codes are evidence. Sentences are not.
+alwaysApply: true
+---
+
+Do not accept "I checked it", "verified", "no issues found", or "確認した" as a pass.
+
+A pass is exit code 0 from a named gate. Skipped is listed and is not a pass.
+
+End the task with SEKISHO's summary line, never with the word verified.

@@ -1,0 +1,10 @@
+---
+description: Every check is a command that blocks. Manual checklists are forbidden.
+alwaysApply: true
+---
+
+Do not create a manual checklist. Do not ask a human or an AI to tick boxes from memory.
+
+A check exists only if a command can return a non-zero exit code.
+
+"I looked at it" is not a check.

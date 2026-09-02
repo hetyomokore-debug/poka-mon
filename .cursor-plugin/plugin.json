@@ -1,0 +1,16 @@
+{
+  "name": "poka-mon",
+  "displayName": "POKA-MON",
+  "description": "Jig-Driven Development. Seven constraining jigs. Quality lives in tools the worker cannot bypass.",
+  "version": "0.1.1",
+  "author": {
+    "name": "hetyomokore",
+    "url": "https://github.com/hetyomokore-debug"
+  },
+  "homepage": "https://github.com/hetyomokore-debug/poka-mon",
+  "repository": "https://github.com/hetyomokore-debug/poka-mon",
+  "license": "MIT",
+  "skills": "./skills",
+  "rules": "./rules",
+  "agents": "./agents"
+}

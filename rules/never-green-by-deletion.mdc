@@ -1,0 +1,10 @@
+---
+description: Never pass a gate by deleting what it checks.
+alwaysApply: true
+---
+
+Do not make a red check go green by deleting the check item, the test, or the contract.
+
+If an item is genuinely retired, write the reason in the document and lower the floor in the same change.
+
+KARAPPO treats a disappearing item as HOLLOW (exit 3), not as a pass.
