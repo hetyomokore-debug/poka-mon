@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "log": ".jig/gate_log.jsonl",
+  "track_a_paths": ["scratch/**", "notebooks/**"],
+  "track_c_contracts": 4,
+  "code_extensions": [".py", ".js", ".ts", ".tsx", ".go", ".rs", ".rb", ".java", ".kt", ".swift", ".sh"],
+  "irreversible": ["migrations/**", "deploy/**", "**/*send*", "**/*notify*", "**/*delete*"],
+  "contracts": [
+    {
+      "id": "orders_export",
+      "producer": "src/orders/export.py",
+      "consumers": ["src/dashboard/orders.js", "src/reports/monthly.py"],
+      "fields": ["order_id", "amount_yen", "paid_at"],
+      "requirements": ["F-3", "V-2"],
+      "guard_test": "tests/test_orders_export.py",
+      "business_critical": true
+    }
+  ],
+  "gates": {
+    "commit": [
+      { "name": "hakari",   "cmd": "python3 {plugin}/skills/hakari/scripts/hakari.py --changed {changed}" },
+      { "name": "sakigaki", "cmd": "python3 {plugin}/skills/sakigaki/scripts/sakigaki.py --changed {changed}" },
+      { "name": "pokayoke", "cmd": "python3 {plugin}/skills/pokayoke/scripts/pokayoke.py" }
+    ],
+    "pr": [
+      { "name": "unit",     "cmd": "python3 -m pytest -q", "requires": "tests" },
+      { "name": "namamono", "cmd": "python3 {plugin}/skills/namamono/scripts/namamono.py" },
+      { "name": "karappo",  "cmd": "python3 {plugin}/skills/karappo/scripts/karappo.py" }
+    ],
+    "release": [
+      { "name": "full",     "cmd": "python3 -m pytest", "requires": "tests" }
+    ]
+  },
+  "generated": [
+    { "target": "docs/testcases.md", "cmd": "python3 tools/gen_testcases.py --out {out}" }
+  ],
+  "pairings": [
+    {
+      "name": "no-external-hosting",
+      "declaration": { "file": "CLAUDE.md", "contains": "Do not publish deliverables externally" },
+      "enforcement":  { "file": ".claude/settings.json", "contains": "\"Artifact\"" }
+    }
+  ],
+  "hollow": [
+    { "name": "contracts", "file": "jig.json", "path": "contracts", "min": 1 },
+    { "name": "pairings",  "file": "jig.json", "path": "pairings",  "min": 1 }
+  ],
+  "retirement": [
+    {
+      "jig": "sekisho",
+      "created": "2026-09-02",
+      "review_after_days": 90,
+      "abolish_if": { "bypass_rate_gt": 0.20, "false_positive_rate_gt": 0.30, "track_c_share_gt": 0.50 }
+    }
+  ]
+}

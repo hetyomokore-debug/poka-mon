@@ -1,0 +1,8 @@
+---
+description: Never create a manual checklist. Every check is a machine gate that blocks.
+alwaysApply: true
+---
+Do not create, propose, or maintain a manual checklist of any kind — not in Markdown, not in a PR template, not in a comment.
+Manual checklists get skipped in a busy week; the skip leaves no record; next week it is easier to skip.
+
+If something must be checked, turn it into a command that returns a non-zero exit code when the condition is not met, and register it as a gate (see the `sekisho` skill). If it cannot be turned into a command yet, say so explicitly and record it as an open item — do not disguise it as a checkbox.

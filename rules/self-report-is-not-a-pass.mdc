@@ -1,0 +1,9 @@
+---
+description: "I checked it" is not a pass. Only a machine's exit code is.
+alwaysApply: true
+---
+Never report a task as verified, checked, or done on the strength of your own reading. The pass is a signal a machine emits — an exit code of 0 from a registered gate — not a sentence you write.
+
+- Before saying "done", run the relevant gate (`sekisho`) and paste its one-line summary. If no gate covers the change, say "no gate covers this" instead of "verified".
+- Never lower the risk track of a change by describing it as minor. Ask `hakari`; it does not take self-reports. If you must override, use `--override` with a reason so the override is logged.
+- When you cannot produce machine evidence, say what is missing. Do not fill the gap with confidence.

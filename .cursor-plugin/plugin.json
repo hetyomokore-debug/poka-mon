@@ -1,0 +1,30 @@
+{
+  "name": "poka-mon",
+  "displayName": "POKA-MON — Jig-Driven Development",
+  "description": "Seven monsters that don't work. That's the job. Machine checkpoints (jigs) that stop your agent — and you — instead of asking anyone to be careful. Risk scoring without self-report, exit-code-only gates, contract-first order, generated-table drift checks, hollow-check alarms, sign-and-lock pairing, and built-in retirement conditions.",
+  "version": "0.1.0",
+  "author": {
+    "name": "POKA-MON contributors"
+  },
+  "repository": "https://github.com/hetyomokore-debug/poka-mon",
+  "homepage": "https://github.com/hetyomokore-debug/poka-mon#readme",
+  "license": "MIT",
+  "keywords": [
+    "jig",
+    "poka-yoke",
+    "quality-gates",
+    "verification",
+    "agents",
+    "checkpoints",
+    "jig-driven-development"
+  ],
+  "category": "engineering",
+  "tags": [
+    "quality",
+    "gates",
+    "workflow"
+  ],
+  "skills": "./skills",
+  "rules": "./rules",
+  "agents": "./agents"
+}
