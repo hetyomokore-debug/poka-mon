@@ -1,143 +1,56 @@
 {
+  "version": 1,
   "log": ".jig/gate_log.jsonl",
+  "track_a_paths": ["scratch/**", "notebooks/**"],
   "track_c_contracts": 4,
-  "track_c_blast_radius": 8,
-  "yamedoki_min_samples": 10,
-  "irreversible": [
-    "jig.json",
-    "jig.example.json",
-    "skills/**/scripts/*.py"
-  ],
-  "track_a_paths": [
-    "tmp/**",
-    "scratch/**"
-  ],
+  "code_extensions": [".py", ".js", ".ts", ".tsx", ".go", ".rs", ".rb", ".java", ".kt", ".swift", ".sh"],
+  "irreversible": ["migrations/**", "deploy/**", "**/*send*", "**/*notify*", "**/*delete*"],
   "contracts": [
     {
-      "id": "gate-log",
-      "producer": "skills/_lib/jiglib.py",
-      "consumers": [
-        "skills/hakari/scripts/hakari.py",
-        "skills/sekisho/scripts/sekisho.py",
-        "skills/sakigaki/scripts/sakigaki.py",
-        "skills/namamono/scripts/namamono.py",
-        "skills/karappo/scripts/karappo.py",
-        "skills/pokayoke/scripts/pokayoke.py",
-        "skills/yamedoki/scripts/yamedoki.py"
-      ],
-      "fields": ["ts", "jig", "action", "exit", "dry_run"],
-      "requirements": ["REQ-LOG-1"],
-      "guard_test": "skills/_lib/jiglib.py",
-      "business_critical": true
-    },
-    {
-      "id": "jig-config",
-      "producer": "jig.example.json",
-      "consumers": [
-        "skills/hakari/scripts/hakari.py",
-        "skills/sekisho/scripts/sekisho.py",
-        "skills/sakigaki/scripts/sakigaki.py"
-      ],
-      "fields": ["log", "contracts", "gates", "generated", "pairings", "hollow", "retirement"],
-      "requirements": ["REQ-CFG-1"],
-      "guard_test": "skills/sakigaki/scripts/sakigaki.py",
+      "id": "orders_export",
+      "producer": "src/orders/export.py",
+      "consumers": ["src/dashboard/orders.js", "src/reports/monthly.py"],
+      "fields": ["order_id", "amount_yen", "paid_at"],
+      "requirements": ["F-3", "V-2"],
+      "guard_test": "tests/test_orders_export.py",
       "business_critical": true
     }
   ],
   "gates": {
     "commit": [
-      {
-        "name": "hakari-weigh",
-        "cmd": "python3 {plugin}/skills/hakari/scripts/hakari.py weigh --config {config} --changed {changed}"
-      },
-      {
-        "name": "sakigaki-check",
-        "cmd": "python3 {plugin}/skills/sakigaki/scripts/sakigaki.py check --config {config} --changed {changed}"
-      },
-      {
-        "name": "pokayoke-pair",
-        "cmd": "python3 {plugin}/skills/pokayoke/scripts/pokayoke.py --config {config}"
-      }
+      { "name": "hakari",   "cmd": "python3 {plugin}/skills/hakari/scripts/hakari.py --changed {changed}" },
+      { "name": "sakigaki", "cmd": "python3 {plugin}/skills/sakigaki/scripts/sakigaki.py --changed {changed}" },
+      { "name": "pokayoke", "cmd": "python3 {plugin}/skills/pokayoke/scripts/pokayoke.py" }
     ],
     "pr": [
-      {
-        "name": "commit-tier",
-        "cmd": "python3 {plugin}/skills/sekisho/scripts/sekisho.py --tier commit --config {config} --changed {changed}"
-      },
-      {
-        "name": "namamono-rot",
-        "cmd": "python3 {plugin}/skills/namamono/scripts/namamono.py --config {config}"
-      },
-      {
-        "name": "karappo-alarm",
-        "cmd": "python3 {plugin}/skills/karappo/scripts/karappo.py --config {config}"
-      }
+      { "name": "unit",     "cmd": "python3 -m pytest -q", "requires": "tests" },
+      { "name": "namamono", "cmd": "python3 {plugin}/skills/namamono/scripts/namamono.py" },
+      { "name": "karappo",  "cmd": "python3 {plugin}/skills/karappo/scripts/karappo.py" }
     ],
     "release": [
-      {
-        "name": "pr-tier",
-        "cmd": "python3 {plugin}/skills/sekisho/scripts/sekisho.py --tier pr --config {config} --changed {changed}"
-      },
-      {
-        "name": "yamedoki-eval",
-        "cmd": "python3 {plugin}/skills/yamedoki/scripts/yamedoki.py evaluate --config {config}"
-      }
+      { "name": "full",     "cmd": "python3 -m pytest", "requires": "tests" }
     ]
   },
   "generated": [
-    {
-      "target": ".jig/contract_ids.txt",
-      "cmd": "python3 -c \"import json,sys; d=json.load(open(sys.argv[1])); open(sys.argv[2],'w').write('\\n'.join(sorted(c['id'] for c in d.get('contracts',[])))+'\\n')\" {config} {out}"
-    }
+    { "target": "docs/testcases.md", "cmd": "python3 tools/gen_testcases.py --out {out}" }
   ],
   "pairings": [
     {
-      "id": "no-manual-checklists",
-      "declaration": {
-        "file": "rules/no-manual-checklists.mdc",
-        "contains": "every check is a command"
-      },
-      "enforcement": {
-        "file": "skills/sekisho/scripts/sekisho.py",
-        "contains": "EXIT_FAIL"
-      }
-    },
-    {
-      "id": "self-report-is-not-a-pass",
-      "declaration": {
-        "file": "rules/self-report-is-not-a-pass.mdc",
-        "contains": "exit codes are evidence"
-      },
-      "enforcement": {
-        "file": "skills/sekisho/scripts/sekisho.py",
-        "contains": "skipped"
-      }
+      "name": "no-external-hosting",
+      "declaration": { "file": "CLAUDE.md", "contains": "Do not publish deliverables externally" },
+      "enforcement":  { "file": ".claude/settings.json", "contains": "\"Artifact\"" }
     }
   ],
   "hollow": [
-    {
-      "id": "contracts-floor",
-      "file": "jig.example.json",
-      "path": "contracts",
-      "min": 1
-    },
-    {
-      "id": "commit-gates-floor",
-      "file": "jig.example.json",
-      "path": "gates.commit",
-      "min": 1
-    }
+    { "name": "contracts", "file": "jig.json", "path": "contracts", "min": 1 },
+    { "name": "pairings",  "file": "jig.json", "path": "pairings",  "min": 1 }
   ],
   "retirement": [
     {
-      "id": "sekisho-commit",
-      "installed": "2026-09-02",
-      "abolish_if": {
-        "accident_class_not_down_after_days": 90,
-        "bypass_rate_gt": 0.20,
-        "false_positive_rate_gt": 0.30,
-        "track_c_share_gt": 0.50
-      }
+      "jig": "sekisho",
+      "created": "2026-09-02",
+      "review_after_days": 90,
+      "abolish_if": { "bypass_rate_gt": 0.20, "false_positive_rate_gt": 0.30, "track_c_share_gt": 0.50 }
     }
   ]
 }

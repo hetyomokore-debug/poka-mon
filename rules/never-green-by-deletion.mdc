@@ -1,10 +1,12 @@
 ---
-description: Never pass a gate by deleting what it checks.
+description: Never make a gate pass by deleting or weakening the thing it checks.
 alwaysApply: true
 ---
+When a gate is red, the shortest path to green is to delete the check item, the test, or the expected value. That path is forbidden.
 
-Do not make a red check go green by deleting the check item, the test, or the contract.
+- Do not delete or skip a test to make a gate pass.
+- Do not remove an entry from a registry (contracts, pairings, hollow checks) to make a gate pass.
+- Do not lower a threshold or a minimum count without writing the reason in the project's documentation and lowering it in the same change.
+- If a check is genuinely obsolete, retire it through the `yamedoki` skill so the retirement is recorded, not silent.
 
-If an item is genuinely retired, write the reason in the document and lower the floor in the same change.
-
-KARAPPO treats a disappearing item as HOLLOW (exit 3), not as a pass.
+A check that passes because its input became empty is not a checkpoint. It is decoration. The `karappo` skill exists to catch exactly this.

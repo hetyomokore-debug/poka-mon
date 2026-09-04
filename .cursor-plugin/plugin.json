@@ -1,15 +1,30 @@
 {
   "name": "poka-mon",
-  "displayName": "POKA-MON",
-  "description": "Jig-Driven Development. Seven constraining jigs. Quality lives in tools the worker cannot bypass.",
+  "displayName": "POKA-MON — Jig-Driven Development",
+  "description": "Seven monsters that don't work. That's the job. Machine checkpoints (jigs) that stop your agent — and you — instead of asking anyone to be careful. Risk scoring without self-report, exit-code-only gates, contract-first order, generated-table drift checks, hollow-check alarms, sign-and-lock pairing, and built-in retirement conditions.",
   "version": "0.1.1",
   "author": {
     "name": "hetyomokore",
     "url": "https://github.com/hetyomokore-debug"
   },
-  "homepage": "https://github.com/hetyomokore-debug/poka-mon",
   "repository": "https://github.com/hetyomokore-debug/poka-mon",
+  "homepage": "https://github.com/hetyomokore-debug/poka-mon#readme",
   "license": "MIT",
+  "keywords": [
+    "jig",
+    "poka-yoke",
+    "quality-gates",
+    "verification",
+    "agents",
+    "checkpoints",
+    "jig-driven-development"
+  ],
+  "category": "engineering",
+  "tags": [
+    "quality",
+    "gates",
+    "workflow"
+  ],
   "skills": "./skills",
   "rules": "./rules",
   "agents": "./agents"

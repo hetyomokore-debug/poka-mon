@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "log": ".jig/gate_log.jsonl",
+  "yamedoki_min_samples": 10,
+  "track_a_paths": [
+    "scratch/**",
+    "tmp/**"
+  ],
+  "irreversible": [
+    "skills/**/scripts/*.py"
+  ],
+  "contracts": [
+    {
+      "id": "gate-log",
+      "producer": "skills/sekisho/scripts/sekisho.py",
+      "consumers": [
+        "skills/karappo/scripts/karappo.py",
+        "skills/yamedoki/scripts/yamedoki.py"
+      ],
+      "fields": [
+        "ts",
+        "jig",
+        "tier",
+        "gates",
+        "failed",
+        "unavailable",
+        "changed"
+      ],
+      "requirements": [
+        "REQ-LOG-1"
+      ],
+      "guard_test": "skills/karappo/scripts/karappo.py",
+      "business_critical": true
+    },
+    {
+      "id": "hakari-log",
+      "producer": "skills/hakari/scripts/hakari.py",
+      "consumers": [
+        "skills/yamedoki/scripts/yamedoki.py"
+      ],
+      "fields": [
+        "ts",
+        "jig",
+        "track",
+        "machine_track",
+        "override",
+        "changed"
+      ],
+      "requirements": [
+        "REQ-LOG-2"
+      ],
+      "guard_test": "skills/yamedoki/scripts/yamedoki.py",
+      "business_critical": true
+    }
+  ],
+  "gates": {
+    "commit": [
+      {
+        "name": "selftests",
+        "cmd": "python3 {plugin}/tools/selftest_all.py"
+      },
+      {
+        "name": "sakigaki",
+        "cmd": "python3 {plugin}/skills/sakigaki/scripts/sakigaki.py --config {config} --changed {changed}"
+      },
+      {
+        "name": "pokayoke",
+        "cmd": "python3 {plugin}/skills/pokayoke/scripts/pokayoke.py --config {config}"
+      }
+    ],
+    "pr": [
+      {
+        "name": "namamono",
+        "cmd": "python3 {plugin}/skills/namamono/scripts/namamono.py --config {config}"
+      },
+      {
+        "name": "karappo",
+        "cmd": "python3 {plugin}/skills/karappo/scripts/karappo.py --config {config}"
+      }
+    ],
+    "release": [
+      {
+        "name": "yamedoki",
+        "cmd": "python3 {plugin}/skills/yamedoki/scripts/yamedoki.py --config {config} --evaluate"
+      }
+    ]
+  },
+  "generated": [
+    {
+      "target": ".jig/contract_ids.txt",
+      "cmd": "python3 tools/gen_contract_ids.py {out} jig.json"
+    }
+  ],
+  "pairings": [
+    {
+      "name": "self-report-rule-has-a-lock",
+      "declaration": {
+        "file": "rules/self-report-is-not-a-pass.mdc",
+        "contains": "exit code"
+      },
+      "enforcement": {
+        "file": "skills/sekisho/scripts/sekisho.py",
+        "contains": "EXIT_FAIL"
+      }
+    },
+    {
+      "name": "delete-to-green-rule-has-a-lock",
+      "declaration": {
+        "file": "rules/never-green-by-deletion.mdc",
+        "contains": "karappo"
+      },
+      "enforcement": {
+        "file": "skills/karappo/scripts/karappo.py",
+        "contains": "EXIT_HOLLOW"
+      }
+    }
+  ],
+  "hollow": [
+    {
+      "name": "contracts",
+      "file": "jig.json",
+      "path": "contracts",
+      "min": 1
+    },
+    {
+      "name": "gates.commit",
+      "file": "jig.json",
+      "path": "gates.commit",
+      "min": 1
+    },
+    {
+      "name": "pairings",
+      "file": "jig.json",
+      "path": "pairings",
+      "min": 1
+    }
+  ],
+  "retirement": [
+    {
+      "jig": "sekisho",
+      "created": "2026-09-02",
+      "review_after_days": 90,
+      "abolish_if": {
+        "bypass_rate_gt": 0.2,
+        "false_positive_rate_gt": 0.3,
+        "track_c_share_gt": 0.5
+      }
+    }
+  ]
+}

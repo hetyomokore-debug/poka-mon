@@ -1,2 +1,2 @@
 gate-log
-jig-config
+hakari-log

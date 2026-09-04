@@ -85,6 +85,18 @@ The method and the seven principles are described in *Jig-Driven Development —
 
 Half of this is what pstack's "Build the Lever" already says — give agents tools, not markdown. POKA-MON is the other half: what self-verification structurally cannot see (what wasn't done, a standard that was loosened, the danger of one's own change).
 
+## This repository runs its own jigs
+
+`jig.json` at the root configures POKA-MON against POKA-MON. Editing any script is track C (HAKARI: `irreversible`), `.jig/contract_ids.txt` is generated — never hand-edited — and gated by NAMAMONO, the rule files are paired with the scripts that enforce them (POKAYOKE), and the registries are watched by KARAPPO.
+
+```bash
+python3 skills/sekisho/scripts/sekisho.py --tier commit    # selftests, sakigaki, pokayoke
+python3 skills/sekisho/scripts/sekisho.py --tier pr        # namamono, karappo
+python3 skills/sekisho/scripts/sekisho.py --tier release   # yamedoki --evaluate
+```
+
+A change to this repository is done when those lines are green. Not when someone says so.
+
 ## Before publishing (maintainers)
 
 1. Set the real owner in `.cursor-plugin/plugin.json` (`repository`, `homepage`, `author`) and in `LICENSE`.
