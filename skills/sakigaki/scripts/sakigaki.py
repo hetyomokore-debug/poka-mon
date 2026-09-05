@@ -8,7 +8,7 @@ Two checks:
 
 Exit codes: 0 = pass   1 = violation (write the contract / put the failing test first)   2 = config/usage error
 """
-import argparse, fnmatch, json, os, subprocess, sys, tempfile
+import argparse, fnmatch, json, os, shlex, subprocess, sys, tempfile
 
 EXIT_PASS, EXIT_FAIL, EXIT_CONFIG = 0, 1, 2
 DEFAULT_CODE_EXT = [".py", ".js", ".ts", ".tsx", ".go", ".rs", ".rb", ".java", ".kt", ".swift", ".sh"]
@@ -37,8 +37,56 @@ def matches(path, pat):
     return path == pat or fnmatch.fnmatch(path, pat)
 
 
+def _as_file(x):
+    """A producer/consumer entry is a path string, or an object with a `file` key (registry style)."""
+    return x.get("file", "") if isinstance(x, dict) else (x or "")
+
+
+def normalize_contract(c):
+    """Accept two shapes: the jig.example.json shape, and the registry shape older contract checkers use
+    (`name` for `id`; `producer: {file, fields}`; `consumers: [{file, reads}]`). Extra keys are kept and ignored."""
+    prod = c.get("producer", "")
+    return {**c,
+            "id": c.get("id") or c.get("name") or _as_file(prod),
+            "producer": _as_file(prod),
+            "consumers": [_as_file(x) for x in (c.get("consumers") or [])],
+            "fields": list(c.get("fields") or (prod.get("fields") if isinstance(prod, dict) else None) or []),
+            "business_critical": bool(c.get("business_critical", False))}
+
+
+def load_contracts(cfg, root="."):
+    """`contracts` is a list (or a single string). A string entry names a registry JSON file, relative to root,
+    whose top-level `contracts` list is included — so an existing registry stays the single source of truth
+    instead of being copied into jig.json by hand (NAMAMONO)."""
+    src = cfg.get("contracts", [])
+    out = []
+    for entry in ([src] if isinstance(src, str) else src):
+        if not isinstance(entry, str):
+            out.append(normalize_contract(entry)); continue
+        try:
+            with open(os.path.join(root, entry), encoding="utf-8") as f:
+                reg = json.load(f)
+        except FileNotFoundError:
+            sys.exit(f"config error: contracts registry {entry} not found")
+        except json.JSONDecodeError as e:
+            sys.exit(f"config error: contracts registry {entry}: {e}")
+        items = reg.get("contracts") if isinstance(reg, dict) else reg
+        if not isinstance(items, list):
+            sys.exit(f"config error: contracts registry {entry} has no `contracts` list")
+        out.extend(normalize_contract(c) for c in items)
+    return out
+
+
+def guard_file(gt):
+    """`guard_test` is a path, or a command such as `qa/check.py --selftest`; the first token is the file that must exist."""
+    try:
+        return shlex.split(gt)[0]
+    except (ValueError, IndexError):
+        return gt
+
+
 def check(cfg, changed, root="."):
-    contracts = cfg.get("contracts", [])
+    contracts = load_contracts(cfg, root)
     code_ext = tuple(cfg.get("code_extensions", DEFAULT_CODE_EXT))
     a_paths, test_paths = cfg.get("track_a_paths", []), cfg.get("test_paths", DEFAULT_TEST_PATHS)
     v = []
@@ -57,7 +105,7 @@ def check(cfg, changed, root="."):
             gt = c.get("guard_test")
             if not gt:
                 v.append(f"{c['id']}: contract has no `guard_test` — put the failing test in place first")
-            elif not os.path.exists(os.path.join(root, gt)):
+            elif not os.path.exists(os.path.join(root, guard_file(gt))):
                 v.append(f"{c['id']}: guard_test {gt} does not exist on disk")
     return v
 
@@ -81,6 +129,17 @@ def selftest():
         assert len(check(cfg, ["src/new.py"], d)) == 1; n += 1                  # code with no contract
         vb = check(cfg, ["src/b.py"], d); assert len(vb) == 2 and "requirements" in vb[0] and "does not exist" in vb[1]; n += 1
         assert expect_red("exit 1", d) and not expect_red("true", d); n += 1
+        # registry shape, referenced by path, with a guard_test that is a command (first token must exist)
+        os.makedirs(os.path.join(d, "qa")); open(os.path.join(d, "qa", "check.py"), "w").close()
+        reg = {"contracts": [{"name": "gov", "producer": {"file": "qa/reg.json", "fields": ["a"]},
+                              "consumers": [{"file": "qa/check.py", "reads": ["a"]}],
+                              "guard_test": "qa/check.py --selftest", "requirements": ["G-1"]}]}
+        json.dump(reg, open(os.path.join(d, "registry.json"), "w", encoding="utf-8"))
+        assert check({"contracts": ["registry.json"]}, ["qa/reg.json"], d) == []; n += 1
+        assert check({"contracts": ["registry.json"]}, ["qa/check.py"], d) == []; n += 1      # consumer-only
+        assert guard_file("qa/check.py --selftest") == "qa/check.py" and guard_file("tests/t.py") == "tests/t.py"; n += 1
+        vm = check({"contracts": [{"id": "c", "producer": "qa/reg.json", "requirements": ["R"], "guard_test": "qa/missing.py --selftest"}]}, ["qa/reg.json"], d)
+        assert len(vm) == 1 and "does not exist" in vm[0]; n += 1
     print(f"sakigaki selftest: {n} checks OK")
     return 0
 

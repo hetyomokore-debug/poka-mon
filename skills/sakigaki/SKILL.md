@@ -9,7 +9,7 @@ A contract written after the code merely traces the code that exists. If the cod
 
 ## The four steps (track B; track C adds the pr/release tiers)
 
-1. **Write the contract first.** In `jig.json` → `contracts[]`: `id`, `producer`, `consumers`, `fields`, `requirements` (which requirement this serves), `guard_test`. Before any code.
+1. **Write the contract first.** In `jig.json` → `contracts[]`: `id`, `producer`, `consumers`, `fields`, `requirements` (which requirement this serves), `guard_test`. Before any code. If the repository already keeps a contracts registry, name that file in `contracts` instead of copying it (see the README); its entries are accepted as-is.
 2. **Put the failing test first.** Write the guard test, then prove it is red:
    ```
    python3 <plugin>/skills/sakigaki/scripts/sakigaki.py --expect-red --cmd "python3 -m pytest tests/test_orders_export.py -q"
@@ -25,7 +25,7 @@ python3 <plugin>/skills/sakigaki/scripts/sakigaki.py --changed src/orders/export
 python3 <plugin>/skills/sakigaki/scripts/sakigaki.py --selftest
 ```
 
-Fails when a changed source file is named by no contract, when a touched contract has no `requirements`, or when its `guard_test` does not exist on disk. Tests, docs, and `track_a_paths` are exempt; consumer-only changes pass.
+Fails when a changed source file is named by no contract, when a touched contract has no `requirements`, or when its `guard_test` (a path, or the first token of a command) does not exist on disk. Tests, docs, and `track_a_paths` are exempt; consumer-only changes pass.
 
 ## Never
 

@@ -15,6 +15,8 @@ A scale that weighs the danger of a change without listening to anyone's opinion
 
 Track A only if **every** changed file is under `track_a_paths` and no contract is touched. Everything else is B, unless an axis says C.
 
+`contracts` may be inline in `jig.json` or an existing registry file named there (see the README); both shapes are read the same way.
+
 ## Run
 
 ```
