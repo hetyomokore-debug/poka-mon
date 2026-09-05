@@ -10,6 +10,7 @@ Trial of the schema-migration item from the 0.1.1 checklist: an existing contrac
 - karappo: a `hollow` path that resolves to a string (a reference, not a registry) is an error, never counted as entries
 - LICENSE copyright holder set (was the placeholder "POKA-MON contributors")
 - Selftests: 58 checks (was 50)
+- `docs/plugin-json-validation.md`: maintainer procedure for checking the manifest against Cursor's reference, the publish form, and a live install
 - Dogfooding: a `jig-config-contracts` contract now names `jig.example.json` as the producer of the `contracts` shape and hakari / sakigaki / `gen_contract_ids.py` as its consumers; `.jig/contract_ids.txt` regenerated
 
 What dogfooding found: the commit tier refused this change — SAKIGAKI reported that `sakigaki.py` and `tools/gen_contract_ids.py` were named by no contract. The contract above was written after the code, which is exactly the order the jig exists to catch; the guard (the new selftests) was written together with the code, not after. Recorded here rather than hidden.

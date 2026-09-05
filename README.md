@@ -120,7 +120,7 @@ A change to this repository is done when those lines are green. Not when someone
 ## Before publishing (maintainers)
 
 1. Owner is set in `.cursor-plugin/plugin.json` (`repository`, `homepage`, `author`) and in `LICENSE` (`hetyomokore`); re-check both before the first public release.
-2. Validate `plugin.json` fields against Cursor's Plugins Reference; the manifest here follows the documented field names but the component-path fields (`skills`, `rules`, `agents`) should be confirmed.
+2. Validate `plugin.json` fields against Cursor's Plugins Reference; the manifest here follows the documented field names but the component-path fields (`skills`, `rules`, `agents`) should be confirmed. Procedure: `docs/plugin-json-validation.md`.
 3. Run every `--selftest`.
 4. Run a secrets scan over the tree. The plugin must contain no paths, names, or values from any private environment.
 
