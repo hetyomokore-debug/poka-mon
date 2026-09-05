@@ -2,6 +2,8 @@
 
 > English summary: `.cursor-plugin/plugin.json` was written from search-result fragments because Cursor's Plugins Reference was unreachable from the authoring environment. This is the maintainer procedure for checking its field names and shapes against the official reference, the Marketplace publish form, and a live install — and for reporting back what to fix. The dangerous failure is silent: the plugin installs, but the skills are not found.
 
+委譲版: パソコン操作権限を持つエージェント（Cowork）に任せる場合は `cowork-marketplace-registration.md` を使う。停止条件と証跡要件を足した同内容。
+
 目的は 1 つだけです。**推測で書いた登録票（`.cursor-plugin/plugin.json`）の項目名と形が、Cursor 公式の書き方と一致しているか**を確かめます。
 
 plugin.json は Cursor に提出する「登録票」です。「スキルはこのフォルダ、ルールはこのフォルダ、エージェントはこのフォルダにあります」と Cursor に教える書類で、項目名や書き方が公式と少しでも違うと、プラグインは入るのに中身が Cursor に見つけてもらえない「静かな失敗」（KARAPPO の状態）が起きます。
