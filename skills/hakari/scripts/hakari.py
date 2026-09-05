@@ -36,6 +36,46 @@ def matches(path, pat):
     return path == pat or fnmatch.fnmatch(path, pat)
 
 
+def _as_file(x):
+    """A producer/consumer entry is a path string, or an object with a `file` key (registry style)."""
+    return x.get("file", "") if isinstance(x, dict) else (x or "")
+
+
+def normalize_contract(c):
+    """Accept two shapes: the jig.example.json shape, and the registry shape older contract checkers use
+    (`name` for `id`; `producer: {file, fields}`; `consumers: [{file, reads}]`). Extra keys are kept and ignored."""
+    prod = c.get("producer", "")
+    return {**c,
+            "id": c.get("id") or c.get("name") or _as_file(prod),
+            "producer": _as_file(prod),
+            "consumers": [_as_file(x) for x in (c.get("consumers") or [])],
+            "fields": list(c.get("fields") or (prod.get("fields") if isinstance(prod, dict) else None) or []),
+            "business_critical": bool(c.get("business_critical", False))}
+
+
+def load_contracts(cfg, root="."):
+    """`contracts` is a list (or a single string). A string entry names a registry JSON file, relative to root,
+    whose top-level `contracts` list is included — so an existing registry stays the single source of truth
+    instead of being copied into jig.json by hand (NAMAMONO)."""
+    src = cfg.get("contracts", [])
+    out = []
+    for entry in ([src] if isinstance(src, str) else src):
+        if not isinstance(entry, str):
+            out.append(normalize_contract(entry)); continue
+        try:
+            with open(os.path.join(root, entry), encoding="utf-8") as f:
+                reg = json.load(f)
+        except FileNotFoundError:
+            sys.exit(f"config error: contracts registry {entry} not found")
+        except json.JSONDecodeError as e:
+            sys.exit(f"config error: contracts registry {entry}: {e}")
+        items = reg.get("contracts") if isinstance(reg, dict) else reg
+        if not isinstance(items, list):
+            sys.exit(f"config error: contracts registry {entry} has no `contracts` list")
+        out.extend(normalize_contract(c) for c in items)
+    return out
+
+
 def append_log(cfg, record, root="."):
     p = os.path.join(root, cfg.get("log", ".jig/gate_log.jsonl"))
     os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
@@ -44,8 +84,8 @@ def append_log(cfg, record, root="."):
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
-def assess(cfg, changed, override=None, reason=None):
-    contracts = cfg.get("contracts", [])
+def assess(cfg, changed, override=None, reason=None, root="."):
+    contracts = load_contracts(cfg, root)
     touched = [c for c in contracts if any(matches(f, c.get("producer", "")) for f in changed)]
     blast = sum(len(c.get("consumers", [])) for c in touched)
     irreversible = sorted({f for f in changed if any(matches(f, p) for p in cfg.get("irreversible", []))})
@@ -92,6 +132,17 @@ def selftest():
         assert line["machine_track"] == "C" and line["override"]["track"] == "B"; n += 1   # override is recorded, not hidden
         assert matches("a/b/c.py", "a/**") and not matches("ab/c.py", "a/**"); n += 1
         assert matches("deep/dir/notify_me.py", "**/*notify*") and not matches("deep/dir/note.py", "**/*notify*"); n += 1
+        # an existing registry (name / producer.file / consumers[].file) referenced by path is accepted as-is
+        reg = {"contracts": [{"name": "gov", "producer": {"file": "qa/reg.json", "fields": ["a"]},
+                              "consumers": [{"file": "qa/check.py", "reads": ["a"]}],
+                              "guard_test": "qa/check.py --selftest", "requirements": ["G-1"]}]}
+        json.dump(reg, open(os.path.join(d, "registry.json"), "w", encoding="utf-8"))
+        cfg2 = {"log": "log.jsonl", "contracts": ["registry.json", {"id": "inline", "producer": "src/z.py", "consumers": []}]}
+        cs = load_contracts(cfg2, d)
+        assert [c["id"] for c in cs] == ["gov", "inline"] and cs[0]["producer"] == "qa/reg.json" \
+            and cs[0]["consumers"] == ["qa/check.py"] and cs[0]["fields"] == ["a"] and cs[0]["business_critical"] is False; n += 1
+        r = assess(cfg2, ["qa/reg.json"], root=d); assert r["touched_contracts"] == ["gov"] and r["blast_radius"] == 1 and r["track"] == "B"; n += 1
+        assert load_contracts({"contracts": "registry.json"}, d)[0]["id"] == "gov"; n += 1   # bare string = one registry
     print(f"hakari selftest: {n} checks OK")
     return 0
 

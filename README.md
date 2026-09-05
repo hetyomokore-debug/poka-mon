@@ -51,7 +51,7 @@ done
 | Key | Read by | Meaning |
 |---|---|---|
 | `log` | all | path of the JSONL gate log (default `.jig/gate_log.jsonl`) |
-| `contracts[]` | hakari, sakigaki | `id`, `producer`, `consumers[]`, `fields[]`, `requirements[]`, `guard_test`, `business_critical` |
+| `contracts[]` | hakari, sakigaki | inline entries (`id`, `producer`, `consumers[]`, `fields[]`, `requirements[]`, `guard_test`, `business_critical`) and/or strings naming registry files — see below |
 | `irreversible[]` | hakari | glob patterns whose files force track C |
 | `track_a_paths[]` | hakari, sakigaki | paths where changes are throwaway (track A) |
 | `track_c_contracts`, `track_c_blast_radius` | hakari | thresholds for track C (default 4 contracts / 8 consumers) |
@@ -63,6 +63,26 @@ done
 | `yamedoki_min_samples` | yamedoki | a rate with fewer samples than this is reported but not judged (default 10) |
 
 Glob patterns support `dir/**` (subtree), `**/pattern` (any depth, matched against the path tail), and plain fnmatch.
+
+### Using a contracts registry you already have
+
+`contracts` may name a JSON file instead of (or alongside) inline entries. The file's top-level `contracts` list is read at run time, so the registry stays the single source of truth and is never copied into `jig.json` by hand:
+
+```json
+"contracts": ["tools/contracts/registry.json", { "id": "inline-one", "producer": "src/x.py", "consumers": [] }]
+```
+
+Entries in either place may use either shape:
+
+| jig.example.json shape | registry shape (also accepted) |
+|---|---|
+| `"id": "orders_export"` | `"name": "orders_export"` |
+| `"producer": "src/orders/export.py"` | `"producer": { "file": "src/orders/export.py", "fields": [...] }` |
+| `"consumers": ["src/ui.js"]` | `"consumers": [{ "file": "src/ui.js", "reads": [...] }]` |
+| `"guard_test": "tests/test_x.py"` | `"guard_test": "tools/check.py --selftest"` — the first token must exist on disk |
+| `"business_critical": true` | absent → `false` |
+
+Keys the jigs do not read (`hint`, `reads`, `notes`, …) are kept and ignored. Paths inside a registry are relative to the directory the jigs run from, which is the directory holding `jig.json`. For KARAPPO, point `hollow[]` at the registry file itself, not at `jig.json`'s `contracts`: a reference string is reported as an error, never counted as entries.
 
 ## Exit codes
 
@@ -99,8 +119,8 @@ A change to this repository is done when those lines are green. Not when someone
 
 ## Before publishing (maintainers)
 
-1. Set the real owner in `.cursor-plugin/plugin.json` (`repository`, `homepage`, `author`) and in `LICENSE`.
-2. Validate `plugin.json` fields against Cursor's Plugins Reference; the manifest here follows the documented field names but the component-path fields (`skills`, `rules`, `agents`) should be confirmed.
+1. Owner is set in `.cursor-plugin/plugin.json` (`repository`, `homepage`, `author`) and in `LICENSE` (`hetyomokore`); re-check both before the first public release.
+2. Validate `plugin.json` fields against Cursor's Plugins Reference; the manifest here follows the documented field names but the component-path fields (`skills`, `rules`, `agents`) should be confirmed. Procedure: `docs/plugin-json-validation.md`.
 3. Run every `--selftest`.
 4. Run a secrets scan over the tree. The plugin must contain no paths, names, or values from any private environment.
 

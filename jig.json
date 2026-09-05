@@ -51,6 +51,31 @@
       ],
       "guard_test": "skills/yamedoki/scripts/yamedoki.py",
       "business_critical": true
+    },
+    {
+      "id": "jig-config-contracts",
+      "producer": "jig.example.json",
+      "consumers": [
+        "skills/hakari/scripts/hakari.py",
+        "skills/sakigaki/scripts/sakigaki.py",
+        "tools/gen_contract_ids.py"
+      ],
+      "fields": [
+        "contracts",
+        "id",
+        "name",
+        "producer",
+        "consumers",
+        "fields",
+        "requirements",
+        "guard_test",
+        "business_critical"
+      ],
+      "requirements": [
+        "REQ-CFG-1"
+      ],
+      "guard_test": "skills/sakigaki/scripts/sakigaki.py --selftest",
+      "business_critical": true
     }
   ],
   "gates": {

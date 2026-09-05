@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.2 — 2026-09-05
+
+Trial of the schema-migration item from the 0.1.1 checklist: an existing contracts registry (the one the theory was extracted from) was pointed at the jigs. It did not fit — six differences, all of them silent failures rather than errors (`name` vs `id`, `producer`/`consumers` as objects vs strings, `guard_test` as a command vs a path, `business_critical` absent, paths rooted elsewhere, and a hand-copied second table that would rot). This release makes the registry usable without copying it.
+
+- `contracts` may name registry JSON files (strings) alongside inline entries; a bare string is one registry. Read by hakari, sakigaki, and `tools/gen_contract_ids.py`
+- Contract entries are normalized from either shape: `name`→`id`, `producer: {file, fields}`→path, `consumers: [{file, reads}]`→paths, `business_critical` defaults to `false`; unknown keys are kept and ignored
+- sakigaki: `guard_test` may be a command (`tools/check.py --selftest`); the first token is what must exist on disk
+- karappo: a `hollow` path that resolves to a string (a reference, not a registry) is an error, never counted as entries
+- LICENSE copyright holder set (was the placeholder "POKA-MON contributors")
+- Selftests: 58 checks (was 50)
+- `docs/plugin-json-validation.md`: maintainer procedure for checking the manifest against Cursor's reference, the publish form, and a live install
+- Dogfooding: a `jig-config-contracts` contract now names `jig.example.json` as the producer of the `contracts` shape and hakari / sakigaki / `gen_contract_ids.py` as its consumers; `.jig/contract_ids.txt` regenerated
+
+What dogfooding found: the commit tier refused this change — SAKIGAKI reported that `sakigaki.py` and `tools/gen_contract_ids.py` were named by no contract. The contract above was written after the code, which is exactly the order the jig exists to catch; the guard (the new selftests) was written together with the code, not after. Recorded here rather than hidden.
+
 ## 0.1.1 — 2026-09-02
 
 Scripts committed. 0.1.0 on `main` was README, LICENSE and CHANGELOG only; a parallel commit on `main` described scripts that were not there. This release makes the description true, and resolves that divergence in favor of the code that exists.

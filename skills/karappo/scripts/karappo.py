@@ -42,6 +42,8 @@ def check(cfg, root="."):
             items = get_path(data, h["path"])
         except (KeyError, IndexError, ValueError, TypeError):
             findings.append(("hollow", name, f"path '{h['path']}' missing in {h['file']} — the registry has nothing to check")); continue
+        if isinstance(items, str):
+            findings.append(("error", name, f"path '{h['path']}' in {h['file']} is a reference ({items!r}), not a registry — point `hollow` at that file itself")); continue
         count = len(items) if isinstance(items, (list, dict)) else 1
         if count < int(h.get("min", 1)):
             findings.append(("hollow", name, f"{count} entries < min {h.get('min', 1)} — delete-to-green or never populated"))
@@ -73,6 +75,9 @@ def selftest():
         cfg3 = {"log": "log.jsonl", "hollow": [{"name": "gone", "file": "jig.json", "path": "nothing", "min": 1}]}
         f = check(cfg3, d); assert f and f[0][0] == "hollow" and "missing" in f[0][2]; n += 1
         f = check({"log": "log.jsonl", "hollow": [{"name": "x", "file": "nope.json", "path": "a"}]}, d); assert f[0][0] == "error"; n += 1
+        open(reg, "w", encoding="utf-8").write(json.dumps({"contracts": "registry.json"}))
+        f = check(cfg, d); assert f and f[0][0] == "error" and "reference" in f[0][2]; n += 1   # a string is never counted as entries
+        json.dump({"contracts": [1, 2], "pairings": []}, open(reg, "w"))   # restore for the gate-log cases below
         open(os.path.join(d, "log.jsonl"), "w").write(json.dumps({"jig": "sekisho", "tier": "pr", "gates": {"a": "skip", "b": "skip"}}) + "\n")
         f = check(cfg, d); assert f and f[0][1] == "gate_log" and "zero gates" in f[0][2]; n += 1
         open(os.path.join(d, "log.jsonl"), "a").write(json.dumps({"jig": "sekisho", "tier": "pr", "gates": {"a": "pass", "b": "skip"}}) + "\n")
