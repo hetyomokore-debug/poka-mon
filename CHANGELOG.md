@@ -10,7 +10,7 @@ Six findings from an outside review of 0.1.1/0.1.2, run against the code (selfte
 - **karappo runs in the commit tier** (`jig.example.json` and this repository's `jig.json`). A run in which every gate was skipped exits 0; KARAPPO is the alarm for that, and it was only in `pr`
 - **`--dry-run` on every script that writes**: namamono `--refresh` and yamedoki `--init` / `--record` gained it (hakari / sekisho already had it; sakigaki / karappo / pokayoke write nothing). README claimed `--dry-run` and gate-log lines for every script; it now says exactly which scripts write what
 - New contract `namamono-backup` (REQ-A3-1), written together with the code — SAKIGAKI would otherwise have refused `namamono.py`, which no contract named
-- Selftests: 33 checks (was 58)
+- Selftests: 65 checks (was 58)
 
 ## 0.1.2 — 2026-09-05
 

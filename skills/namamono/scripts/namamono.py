@@ -83,12 +83,13 @@ def selftest():
         # --dry-run writes nothing, even with --refresh
         open(os.path.join(d, "docs", "t.md"), "w").write("old2\n")
         json.dump(cfg, open(os.path.join(d, "jig.json"), "w"))
+        snap = sorted(os.listdir(os.path.join(d, ".jig", "backup")))   # the A3 test above already made one backup
         cwd = os.getcwd(); os.chdir(d)
         try:
             assert main(["--config", "jig.json", "--refresh", "--dry-run"]) == 0; n += 1
         finally:
             os.chdir(cwd)
-        assert open(os.path.join(d, "docs", "t.md")).read() == "old2\n" and not os.path.exists(os.path.join(d, ".jig", "backup")); n += 1   # untouched, no backup either
+        assert open(os.path.join(d, "docs", "t.md")).read() == "old2\n" and sorted(os.listdir(os.path.join(d, ".jig", "backup"))) == snap; n += 1   # untouched, and no new backup
     print(f"namamono selftest: {n} checks OK")
     return 0
 
