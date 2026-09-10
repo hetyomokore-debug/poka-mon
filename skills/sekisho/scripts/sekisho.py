@@ -51,9 +51,11 @@ def plan(cfg, tier, changed, root=".", config_path="jig.json"):
         sys.exit(f"config error: tier '{tier}' not defined (available: {', '.join(tiers) or 'none'})")
     entries = []
     for g in tiers[tier]:
-        cmd = (g["cmd"].replace("{plugin}", PLUGIN_ROOT).replace("{config}", shlex.quote(config_path))
-               .replace("{changed}", " ".join(shlex.quote(f) for f in changed)))
-        entries.append({"name": g["name"], "cmd": cmd, "skip": not_installed(g, cmd, root)})
+        base = g["cmd"].replace("{plugin}", PLUGIN_ROOT).replace("{config}", shlex.quote(config_path))
+        cmd = base.replace("{changed}", " ".join(shlex.quote(f) for f in changed))
+        # installed-ness is judged WITHOUT the changed files: a changed file that is gone (deleted, renamed,
+        # rooted elsewhere) is not a missing script, and must not turn the gate into a SKIP
+        entries.append({"name": g["name"], "cmd": cmd, "skip": not_installed(g, base.replace("{changed}", ""), root)})
     return entries
 
 
@@ -89,16 +91,18 @@ def selftest():
             {"name": "ok", "cmd": "true"}, {"name": "bad", "cmd": "exit 3"},
             {"name": "gone", "cmd": "python3 tools/none.py"}, {"name": "needs", "cmd": "true", "requires": "tests"},
             {"name": "cfg", "cmd": "test -n {config}"},
-            {"name": "loop", "cmd": "for s in a b; do echo skills/$s/scripts/$s.py; done"}]}}
-        entries = plan(cfg, "commit", ["a.py"], root=d, config_path="my.json")
+            {"name": "loop", "cmd": "for s in a b; do echo skills/$s/scripts/$s.py; done"},
+            {"name": "chg", "cmd": "true {changed}"}]}}
+        entries = plan(cfg, "commit", ["gone/deleted.py"], root=d, config_path="my.json")
         assert entries[4]["cmd"] == "test -n my.json"; n += 1
-        assert [e["skip"] is not None for e in entries] == [False, False, True, True, False, False]; n += 1   # $s is not a missing file
+        assert [e["skip"] is not None for e in entries] == [False, False, True, True, False, False, False]; n += 1   # $s is not a missing file; a deleted changed file is not a missing script
+        assert entries[6]["cmd"] == "true gone/deleted.py"; n += 1
         lines = []
         results, failed, skipped = run(entries, "commit", root=d, out=lines.append)
-        assert results == {"ok": "pass", "bad": "fail", "gone": "skip", "needs": "skip", "cfg": "pass", "loop": "pass"}; n += 1
+        assert results == {"ok": "pass", "bad": "fail", "gone": "skip", "needs": "skip", "cfg": "pass", "loop": "pass", "chg": "pass"}; n += 1
         assert failed == ["bad"] and skipped == ["gone", "needs"]; n += 1
         assert any(l.startswith("excluded as not installed: 2") for l in lines); n += 1   # skipped gates are always listed
-        assert lines[-1] == "=== 3 PASS / 1 FAIL / 2 SKIP (tier=commit) ==="; n += 1
+        assert lines[-1] == "=== 4 PASS / 1 FAIL / 2 SKIP (tier=commit) ==="; n += 1
         try:
             plan(cfg, "release", [], root=d); assert False
         except SystemExit as e:

@@ -5,7 +5,8 @@ Computes a risk track (A / B / C) for a set of files you intend to change, from 
   blast radius     — how many consumers depend on the producers you touch (from jig.json contracts)
   reversibility    — whether any file matches an irreversible pattern (migrations, deploy, send/notify/delete)
   criticality      — whether any touched contract is business_critical
-Nobody can lower the track by describing the change as minor. --override is allowed but RECORDED, never silent.
+Nobody can lower the track by describing the change as minor. --override is allowed but RECORDED, never silent:
+prose has no effect, an explicit reasoned flag does — and the flag is counted later (YAMEDOKI).
 
 Exit codes: 0 = judged (see output)   2 = config/usage error
 """
@@ -126,7 +127,7 @@ def selftest():
         assert assess(cfg, ["src/pay.py"])["track"] == "C"; n += 1
         assert assess(cfg, ["scratch/x.py", "src/a.py"])["track"] == "B"; n += 1   # mixed: not all in A paths
         r = assess(cfg, ["src/pay.py"], override="B", reason="hotfix, reviewed live")
-        assert r["track"] == "B" and r["machine_track"] == "C" and r["override"]["reason"]; n += 1
+        assert r["track"] == "B" and r["machine_track"] == "C" and r["override"]["reason"]; n += 1   # applied — and the machine verdict is kept beside it
         append_log(cfg, r, root=d)
         line = json.loads(open(os.path.join(d, "log.jsonl"), encoding="utf-8").read().splitlines()[-1])
         assert line["machine_track"] == "C" and line["override"]["track"] == "B"; n += 1   # override is recorded, not hidden
@@ -151,7 +152,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--changed", nargs="+", help="files you intend to change (or have changed)")
     ap.add_argument("--config", default="jig.json")
-    ap.add_argument("--override", choices=["A", "B", "C"], help="force a track; REQUIRES --reason; recorded in the log")
+    ap.add_argument("--override", choices=["A", "B", "C"], help="force a track; REQUIRES --reason; applied, and recorded next to the machine verdict")
     ap.add_argument("--reason", help="why you are overriding (logged verbatim)")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     ap.add_argument("--dry-run", action="store_true", help="judge but do not append to the gate log")

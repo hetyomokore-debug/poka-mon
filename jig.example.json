@@ -20,7 +20,8 @@
     "commit": [
       { "name": "hakari",   "cmd": "python3 {plugin}/skills/hakari/scripts/hakari.py --changed {changed}" },
       { "name": "sakigaki", "cmd": "python3 {plugin}/skills/sakigaki/scripts/sakigaki.py --changed {changed}" },
-      { "name": "pokayoke", "cmd": "python3 {plugin}/skills/pokayoke/scripts/pokayoke.py" }
+      { "name": "pokayoke", "cmd": "python3 {plugin}/skills/pokayoke/scripts/pokayoke.py" },
+      { "name": "karappo",  "cmd": "python3 {plugin}/skills/karappo/scripts/karappo.py" }
     ],
     "pr": [
       { "name": "unit",     "cmd": "python3 -m pytest -q", "requires": "tests" },

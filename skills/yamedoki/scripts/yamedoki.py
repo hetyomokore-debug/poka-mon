@@ -139,6 +139,14 @@ def selftest():
         assert r["rates"]["track_c_share"] == 1.0 and r["verdict"].startswith("KEEP") and "too few samples" in r["verdict"]; n += 1
         append_log(cfg, {"jig": "yamedoki", "event": "escape", "target": "sekisho", "note": "prod broke"}, root=d)
         assert read_log(cfg, d)[-1]["event"] == "escape"; n += 1
+        # --dry-run: --init and --record write nothing
+        cwd = os.getcwd(); os.chdir(d)
+        try:
+            json.dump({"log": "dry.jsonl"}, open("dry.json", "w")); before = open("dry.json").read()
+            assert main(["--config", "dry.json", "--init", "--jig", "gate-x", "--dry-run"]) == 0 and open("dry.json").read() == before; n += 1
+            assert main(["--config", "dry.json", "--record", "bypass", "--jig", "gate-x", "--dry-run"]) == 0 and not os.path.exists("dry.jsonl"); n += 1
+        finally:
+            os.chdir(cwd)
     print(f"yamedoki selftest: {n} checks OK")
     return 0
 
@@ -153,6 +161,7 @@ def main(argv=None):
     ap.add_argument("--note", default="")
     ap.add_argument("--review-after-days", type=int, default=90)
     ap.add_argument("--today", help="YYYY-MM-DD (default: today; used for deterministic evaluation)")
+    ap.add_argument("--dry-run", action="store_true", help="show what --init / --record would write; write nothing; exit 0")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
@@ -166,6 +175,9 @@ def main(argv=None):
             e = init_entry(cfg, a.jig, today, a.review_after_days)
         except ValueError as err:
             sys.exit(f"config error: {err}")
+        if a.dry_run:
+            print(f"DRY-RUN would register {a.jig} in {a.config}: review after {e['review_after_days']} days; abolish if {json.dumps(e['abolish_if'])}")
+            return EXIT_OK
         with open(a.config, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2); f.write("\n")
         print(f"YAMEDOKI registered {a.jig}: review after {e['review_after_days']} days; abolish if {json.dumps(e['abolish_if'])}")
@@ -173,6 +185,9 @@ def main(argv=None):
     if a.record:
         if not a.jig:
             ap.error("--record requires --jig")
+        if a.dry_run:
+            print(f"DRY-RUN would record {a.record} against {a.jig} in {cfg.get('log', '.jig/gate_log.jsonl')}")
+            return EXIT_OK
         append_log(cfg, {"jig": "yamedoki", "event": a.record, "target": a.jig, "note": a.note})
         print(f"YAMEDOKI recorded {a.record} against {a.jig}")
         return EXIT_OK

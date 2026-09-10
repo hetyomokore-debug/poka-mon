@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.3 — 2026-09-10
+
+Six findings from an outside review of 0.1.1/0.1.2, run against the code (selftests, end-to-end probes, and the theory the plugin claims to implement). Four are fixed here, one was withdrawn as intended design after re-reading Principle 1, and the sixth — the cited article does not exist yet — is the author's, not the code's.
+
+- **hakari: `--override` keeps its semantics** — the requested track is applied and the machine track is logged beside it. The review first read this as a contradiction of "no self-grading" and a fix was drafted, then withdrawn: prose ("it's minor") has no effect, an explicit reasoned `--override` does and is counted later — record, don't forbid (Principle 1). SKILL and README now say so in one sentence
+- **namamono: `--refresh` backs up before it overwrites.** The previous bytes go to `<log dir>/backup/<UTC ts>/<target>` and the path is printed. Without this the only file-writing path in the plugin failed the reversibility axiom (A3) of the method it implements
+- **sekisho: a changed file that is gone is not a missing script.** `not_installed` tokenised the expanded command, so `--changed src/deleted.py` marked hakari and sakigaki "not installed" and SKIPped them. Installed-ness is now judged on the command without `{changed}`
+- **karappo runs in the commit tier** (`jig.example.json` and this repository's `jig.json`). A run in which every gate was skipped exits 0; KARAPPO is the alarm for that, and it was only in `pr`
+- **`--dry-run` on every script that writes**: namamono `--refresh` and yamedoki `--init` / `--record` gained it (hakari / sekisho already had it; sakigaki / karappo / pokayoke write nothing). README claimed `--dry-run` and gate-log lines for every script; it now says exactly which scripts write what
+- New contract `namamono-backup` (REQ-A3-1), written together with the code — SAKIGAKI would otherwise have refused `namamono.py`, which no contract named
+- Selftests: 65 checks (was 58)
+
 ## 0.1.2 — 2026-09-05
 
 Trial of the schema-migration item from the 0.1.1 checklist: an existing contracts registry (the one the theory was extracted from) was pointed at the jigs. It did not fit — six differences, all of them silent failures rather than errors (`name` vs `id`, `producer`/`consumers` as objects vs strings, `guard_test` as a command vs a path, `business_critical` absent, paths rooted elsewhere, and a hand-copied second table that would rot). This release makes the registry usable without copying it.

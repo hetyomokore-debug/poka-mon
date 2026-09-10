@@ -36,7 +36,7 @@ Every verdict is appended to the gate log (`log` in `jig.json`). YAMEDOKI reads 
 ... --override B --reason "hotfix reviewed live with the on-call engineer"
 ```
 
-Allowed. Required: `--reason`. Both the machine track and the override are logged, so later you can count how many overridden changes actually blew up. **A jig doesn't forbid the act. It makes sure the act leaves a trace.**
+Allowed, and it **applies**: the requested track is the one you follow. Required: `--reason`. Both the machine track and the override are logged, so later you can count how many overridden changes actually blew up. This is the one place a worker's judgment enters — explicitly, with a reason, on the record. Saying "it's minor" in prose does nothing; only the flag does, and the flag is counted. **A jig doesn't forbid the act. It makes sure the act leaves a trace.**
 
 ## Never
 

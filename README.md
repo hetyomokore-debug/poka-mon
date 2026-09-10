@@ -4,7 +4,7 @@
 
 A Cursor / Claude Code plugin for **Jig-Driven Development**: quality lives in machine checkpoints (*jigs*) the worker cannot bypass — not in anyone's attention, and not in the sentence "I checked it."
 
-Seven skills, one principle each, one script each. Every script has `--selftest` and `--dry-run`, returns machine-readable exit codes, and appends one JSON line to a gate log. No dependencies beyond Python 3.8+.
+Seven skills, one principle each, one script each. Every script has `--selftest` and returns machine-readable exit codes; every script that writes anything (hakari, sekisho, namamono `--refresh`, yamedoki `--init` / `--record`) also has `--dry-run`; the ones that judge or run gates append one JSON line to a gate log. No dependencies beyond Python 3.8+.
 
 | Jig | Principle | One move | Script |
 |---|---|---|---|
@@ -43,7 +43,7 @@ done
 ## Install
 
 - **Cursor** — from the Marketplace once published; until then, add this repository as a plugin source per Cursor's plugin docs. The manifest is `.cursor-plugin/plugin.json`.
-- **Claude Code** — the `skills/*/SKILL.md` files are standard Agent Skills. Copy or symlink `skills/*` into `.claude/skills/` (project) or `~/.claude/skills/` (personal); the `rules/*.mdc` content maps to `CLAUDE.md` guidance.
+- **Claude Code** — add this repository as a plugin marketplace and install: `/plugin marketplace add hetyomokore-debug/poka-mon`, then `/plugin install poka-mon@poka-mon` (manifests in `.claude-plugin/`). Or copy / symlink `skills/*` into `.claude/skills/` (project) or `~/.claude/skills/` (personal). Claude Code does not read `rules/*.mdc`; the same three rules are carried by the `jig-mode` skill's *Never* list.
 - **Anything else that reads Agent Skills** — same `SKILL.md` files.
 
 ## Configuration (`jig.json`)
@@ -126,7 +126,7 @@ A change to this repository is done when those lines are green. Not when someone
 
 ## 日本語
 
-ジグ駆動開発の7原理を、Cursor / Claude Code のスキル7本に落としたものです。各スキルは手順（`SKILL.md`）と最小動作スクリプトの組で、スクリプトはすべて `--selftest` と `--dry-run` を持ち、終了コードで結果を返します。設定は対象リポジトリ直下の `jig.json` 1ファイル。理論は記事「ジグ駆動開発 — AIに『気をつけて』と言うのをやめる」を参照してください。
+ジグ駆動開発の7原理を、Cursor / Claude Code のスキル7本に落としたものです。各スキルは手順（`SKILL.md`）と最小動作スクリプトの組で、スクリプトはすべて `--selftest` を持ち、書き込みを伴うものはすべて `--dry-run` も持ち、終了コードで結果を返します。設定は対象リポジトリ直下の `jig.json` 1ファイル。理論は記事「ジグ駆動開発 — AIに『気をつけて』と言うのをやめる」を参照してください。
 
 ## License
 

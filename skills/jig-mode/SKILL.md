@@ -21,7 +21,7 @@ It prints a track. Follow it:
 | **B** | normal change (default) | the four steps of SAKIGAKI, then SEKISHO `--tier commit` |
 | **C** | new, irreversible, or many contracts | B, plus SEKISHO `--tier pr` before you call it done, and `--tier release` before anything ships |
 
-If you disagree with the track, you may `--override <track> --reason "..."`. It is not forbidden. It is recorded.
+If you disagree with the track, you may `--override <track> --reason "..."`. It is not forbidden. It is recorded — and counted later by YAMEDOKI.
 
 ## 2. Route the work
 
