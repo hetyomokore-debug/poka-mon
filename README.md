@@ -101,7 +101,7 @@ Keys the jigs do not read (`hint`, `reads`, `notes`, …) are kept and ignored. 
 
 ## Where this comes from
 
-The method and the seven principles are described in *Jig-Driven Development — Stop Telling Your AI to "Be Careful"*. Short version: an AI's memory resets, its output is probabilistic, and its self-reports are unreliable. Those are not flaws to coach away; they are the spec. Address a spec with discipline and the discipline wears out. So: build tools the worker cannot route around, write the conditions for removing each tool before you build it, and treat a check that has nothing to check as an alarm, not a pass.
+The method and the seven principles are described in *POKA-MON ー Seven monsters that don't work. That's the job. Nothing happened. That's the point.* (https://x.com/hetyomokore/status/2095003759827095645). Short version: an AI's memory resets, its output is probabilistic, and its self-reports are unreliable. Those are not flaws to coach away; they are the spec. Address a spec with discipline and the discipline wears out. So: build tools the worker cannot route around, write the conditions for removing each tool before you build it, and treat a check that has nothing to check as an alarm, not a pass.
 
 Half of this is what pstack's "Build the Lever" already says — give agents tools, not markdown. POKA-MON is the other half: what self-verification structurally cannot see (what wasn't done, a standard that was loosened, the danger of one's own change).
 
@@ -126,7 +126,7 @@ A change to this repository is done when those lines are green. Not when someone
 
 ## 日本語
 
-ジグ駆動開発の7原理を、Cursor / Claude Code のスキル7本に落としたものです。各スキルは手順（`SKILL.md`）と最小動作スクリプトの組で、スクリプトはすべて `--selftest` を持ち、書き込みを伴うものはすべて `--dry-run` も持ち、終了コードで結果を返します。設定は対象リポジトリ直下の `jig.json` 1ファイル。理論は記事「ジグ駆動開発 — AIに『気をつけて』と言うのをやめる」を参照してください。
+ジグ駆動開発の7原理を、Cursor / Claude Code のスキル7本に落としたものです。各スキルは手順（`SKILL.md`）と最小動作スクリプトの組で、スクリプトはすべて `--selftest` を持ち、書き込みを伴うものはすべて `--dry-run` も持ち、終了コードで結果を返します。設定は対象リポジトリ直下の `jig.json` 1ファイル。理論は記事「POKA-MON ー Seven monsters that don't work. That's the job. Nothing happened. That's the point.」（https://x.com/hetyomokore/status/2095003759827095645）を参照してください。
 
 ## License
 
