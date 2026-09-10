@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4 — 2026-09-10
+
+Cursor Marketplace submission prep.
+
+- `logo` added (`assets/logo.png`, 512x512) — the checklist asks for a logo committed to the repo and referenced by a relative path, and the publish form asks for a 1:1 image
+- `category` / `tags` removed from `.cursor-plugin/plugin.json`: neither appears in Cursor's Plugins reference nor in the official `cursor/plugin-template`. `displayName` is kept — the template uses it, even though the reference's field table omits it
+- Closes the 0.1.1 known limit "manifest component-path fields have not been validated against a live Marketplace submission" for everything checkable without submitting
+
 ## 0.1.3 — 2026-09-10
 
 Six findings from an outside review of 0.1.1/0.1.2, run against the code (selftests, end-to-end probes, and the theory the plugin claims to implement). Four are fixed here, one was withdrawn as intended design after re-reading Principle 1, and the sixth — the cited article does not exist yet — is the author's, not the code's.
