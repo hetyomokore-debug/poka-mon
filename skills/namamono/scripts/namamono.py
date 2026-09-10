@@ -33,9 +33,14 @@ def backup_copy(target_rel, root, backup_root):
     return rel
 
 
+def backup_dir(cfg):
+    """Where --refresh keeps the bytes it overwrites: <dir of the gate log>/backup (relative to root)."""
+    return os.path.join(os.path.dirname(cfg.get("log", ".jig/gate_log.jsonl")) or ".jig", "backup")
+
+
 def check(cfg, root=".", refresh=False):
     stale, errors, fresh = [], [], []
-    backup_root = os.path.join(os.path.dirname(cfg.get("log", ".jig/gate_log.jsonl")) or ".jig", "backup")
+    backup_root = backup_dir(cfg)
     for g in cfg.get("generated", []):
         target = os.path.join(root, g["target"])
         fd, out = tempfile.mkstemp(suffix=".gen"); os.close(fd)
@@ -75,6 +80,15 @@ def selftest():
         s, e, f = check(cfg, d, refresh=True); assert f == ["docs/t.md (created)"]; n += 1   # nothing to back up when the target did not exist
         s, e, f = check(cfg, d); assert not s and f == ["docs/t.md"]; n += 1
         s, e, f = check({"generated": [{"target": "docs/t.md", "cmd": "exit 4"}]}, d); assert e and "exit 4" in e[0][1]; n += 1
+        # --dry-run writes nothing, even with --refresh
+        open(os.path.join(d, "docs", "t.md"), "w").write("old2\n")
+        json.dump(cfg, open(os.path.join(d, "jig.json"), "w"))
+        cwd = os.getcwd(); os.chdir(d)
+        try:
+            assert main(["--config", "jig.json", "--refresh", "--dry-run"]) == 0; n += 1
+        finally:
+            os.chdir(cwd)
+        assert open(os.path.join(d, "docs", "t.md")).read() == "old2\n" and not os.path.exists(os.path.join(d, ".jig", "backup")); n += 1   # untouched, no backup either
     print(f"namamono selftest: {n} checks OK")
     return 0
 
@@ -83,20 +97,26 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default="jig.json")
     ap.add_argument("--refresh", action="store_true", help="overwrite stale targets with regenerated output (previous bytes are copied to <log dir>/backup/<ts>/ first)")
+    ap.add_argument("--dry-run", action="store_true", help="report what --refresh would overwrite and where the backup would go; write nothing; exit 0")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
     cfg = load_config(a.config)
-    stale, errors, fresh = check(cfg, refresh=a.refresh)
+    stale, errors, fresh = check(cfg, refresh=a.refresh and not a.dry_run)
     for t in fresh:
         print(f"FRESH {t}")
     for t, why in stale:
-        print(f"STALE {t} — {why} (regenerate, or run with --refresh)")
+        if a.dry_run and a.refresh:
+            print(f"DRY-RUN would refresh {t} — {why}; previous bytes would go to {backup_dir(cfg)}/<ts>/{t}")
+        else:
+            print(f"STALE {t} — {why} (regenerate, or run with --refresh)")
     for t, why in errors:
         print(f"ERROR {t} — {why}")
     if errors:
         return EXIT_CONFIG
+    if a.dry_run:
+        return EXIT_PASS
     return EXIT_FAIL if stale else EXIT_PASS
 
 

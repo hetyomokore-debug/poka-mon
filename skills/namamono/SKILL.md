@@ -24,6 +24,7 @@ The fix is not "remember to update". The fix is: **don't write the table. Genera
 ```
 python3 <plugin>/skills/namamono/scripts/namamono.py            # STALE / FRESH per target; exit 1 if anything is stale
 python3 <plugin>/skills/namamono/scripts/namamono.py --refresh  # overwrite stale targets; the previous bytes go to .jig/backup/<ts>/ first (one move to undo)
+python3 <plugin>/skills/namamono/scripts/namamono.py --refresh --dry-run  # say what would be overwritten and where the backup would go; write nothing
 python3 <plugin>/skills/namamono/scripts/namamono.py --selftest
 ```
 
