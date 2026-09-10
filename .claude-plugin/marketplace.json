@@ -1,6 +1,10 @@
 {
   "name": "poka-mon",
-  "owner": { "name": "hetyomokore", "url": "https://github.com/hetyomokore-debug" },
+  "description": "POKA-MON — Jig-Driven Development as seven machine checkpoints (jigs) for Claude Code.",
+  "owner": {
+    "name": "hetyomokore",
+    "url": "https://github.com/hetyomokore-debug"
+  },
   "plugins": [
     {
       "name": "poka-mon",
