@@ -1,0 +1,10 @@
+{
+  "name": "poka-mon",
+  "description": "Jig-Driven Development for any repo: seven machine checkpoints (risk track without self-report, exit-code-only gates, contract-first order, generated-table drift, hollow-check alarm, sign-and-lock pairing, retirement conditions) plus the /jig-mode router and a jig-auditor agent. Python 3.8+, no dependencies.",
+  "version": "0.1.3",
+  "author": { "name": "hetyomokore", "url": "https://github.com/hetyomokore-debug" },
+  "homepage": "https://github.com/hetyomokore-debug/poka-mon#readme",
+  "repository": "https://github.com/hetyomokore-debug/poka-mon",
+  "license": "MIT",
+  "keywords": ["jig", "poka-yoke", "quality-gates", "verification", "checkpoints", "jig-driven-development"]
+}

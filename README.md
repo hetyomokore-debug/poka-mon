@@ -43,7 +43,7 @@ done
 ## Install
 
 - **Cursor** — from the Marketplace once published; until then, add this repository as a plugin source per Cursor's plugin docs. The manifest is `.cursor-plugin/plugin.json`.
-- **Claude Code** — the `skills/*/SKILL.md` files are standard Agent Skills. Copy or symlink `skills/*` into `.claude/skills/` (project) or `~/.claude/skills/` (personal); the `rules/*.mdc` content maps to `CLAUDE.md` guidance.
+- **Claude Code** — add this repository as a plugin marketplace and install: `/plugin marketplace add hetyomokore-debug/poka-mon`, then `/plugin install poka-mon@poka-mon` (manifests in `.claude-plugin/`). Or copy / symlink `skills/*` into `.claude/skills/` (project) or `~/.claude/skills/` (personal). Claude Code does not read `rules/*.mdc`; the same three rules are carried by the `jig-mode` skill's *Never* list.
 - **Anything else that reads Agent Skills** — same `SKILL.md` files.
 
 ## Configuration (`jig.json`)

@@ -1,0 +1,12 @@
+{
+  "name": "poka-mon",
+  "owner": { "name": "hetyomokore", "url": "https://github.com/hetyomokore-debug" },
+  "plugins": [
+    {
+      "name": "poka-mon",
+      "source": "./",
+      "description": "Seven monsters that don't work. That's the job. Machine checkpoints (jigs) for Jig-Driven Development.",
+      "version": "0.1.3"
+    }
+  ]
+}
