@@ -5,7 +5,8 @@ Computes a risk track (A / B / C) for a set of files you intend to change, from 
   blast radius     — how many consumers depend on the producers you touch (from jig.json contracts)
   reversibility    — whether any file matches an irreversible pattern (migrations, deploy, send/notify/delete)
   criticality      — whether any touched contract is business_critical
-Nobody can lower the track by describing the change as minor. --override is allowed but RECORDED, never silent.
+Nobody can lower the track by describing the change as minor. --override does not change the track: it records a
+disagreement (with its reason) next to the machine verdict, so YAMEDOKI can later count the disagreements and their outcomes.
 
 Exit codes: 0 = judged (see output)   2 = config/usage error
 """
@@ -100,7 +101,7 @@ def assess(cfg, changed, override=None, reason=None, root="."):
     else:
         machine = "B"
     return {
-        "jig": "hakari", "track": override or machine, "machine_track": machine,
+        "jig": "hakari", "track": machine, "machine_track": machine,
         "blast_radius": blast, "irreversible": irreversible, "business_critical": critical,
         "touched_contracts": [c["id"] for c in touched], "changed": list(changed),
         "override": ({"track": override, "reason": reason} if override else None),
@@ -108,7 +109,7 @@ def assess(cfg, changed, override=None, reason=None, root="."):
 
 
 def render(r):
-    ov = f", OVERRIDDEN: {r['override']['reason']}" if r["override"] else ""
+    ov = f", override requested={r['override']['track']} (recorded, not applied): {r['override']['reason']}" if r["override"] else ""
     return (f"HAKARI track={r['track']} (machine={r['machine_track']}{ov}) blast={r['blast_radius']} "
             f"irreversible={r['irreversible']} critical={r['business_critical']} contracts={r['touched_contracts']}")
 
@@ -126,10 +127,10 @@ def selftest():
         assert assess(cfg, ["src/pay.py"])["track"] == "C"; n += 1
         assert assess(cfg, ["scratch/x.py", "src/a.py"])["track"] == "B"; n += 1   # mixed: not all in A paths
         r = assess(cfg, ["src/pay.py"], override="B", reason="hotfix, reviewed live")
-        assert r["track"] == "B" and r["machine_track"] == "C" and r["override"]["reason"]; n += 1
+        assert r["track"] == "C" and r["machine_track"] == "C" and r["override"]["track"] == "B" and r["override"]["reason"]; n += 1   # recorded, never applied
         append_log(cfg, r, root=d)
         line = json.loads(open(os.path.join(d, "log.jsonl"), encoding="utf-8").read().splitlines()[-1])
-        assert line["machine_track"] == "C" and line["override"]["track"] == "B"; n += 1   # override is recorded, not hidden
+        assert line["track"] == "C" and line["machine_track"] == "C" and line["override"]["track"] == "B"; n += 1   # recorded, not hidden, not applied
         assert matches("a/b/c.py", "a/**") and not matches("ab/c.py", "a/**"); n += 1
         assert matches("deep/dir/notify_me.py", "**/*notify*") and not matches("deep/dir/note.py", "**/*notify*"); n += 1
         # an existing registry (name / producer.file / consumers[].file) referenced by path is accepted as-is
@@ -151,7 +152,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--changed", nargs="+", help="files you intend to change (or have changed)")
     ap.add_argument("--config", default="jig.json")
-    ap.add_argument("--override", choices=["A", "B", "C"], help="force a track; REQUIRES --reason; recorded in the log")
+    ap.add_argument("--override", choices=["A", "B", "C"], help="record a disagreement with the machine track; REQUIRES --reason; logged, never applied")
     ap.add_argument("--reason", help="why you are overriding (logged verbatim)")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     ap.add_argument("--dry-run", action="store_true", help="judge but do not append to the gate log")
@@ -162,7 +163,7 @@ def main(argv=None):
     if not a.changed:
         ap.error("--changed is required (or use --selftest)")
     if a.override and not a.reason:
-        ap.error("--override requires --reason: overriding is not forbidden, but it is recorded")
+        ap.error("--override requires --reason: the disagreement is recorded; the track itself does not change")
     cfg = load_config(a.config)
     r = assess(cfg, a.changed, a.override, a.reason)
     if not a.dry_run:

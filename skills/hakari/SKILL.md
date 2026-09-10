@@ -36,7 +36,11 @@ Every verdict is appended to the gate log (`log` in `jig.json`). YAMEDOKI reads 
 ... --override B --reason "hotfix reviewed live with the on-call engineer"
 ```
 
-Allowed. Required: `--reason`. Both the machine track and the override are logged, so later you can count how many overridden changes actually blew up. **A jig doesn't forbid the act. It makes sure the act leaves a trace.**
+Allowed — as a **record**, not as a change of verdict. `--reason` is required. Output and log keep `track` equal to the machine track and carry the disagreement in `override`, so nothing downstream ever reads a lowered track. YAMEDOKI can later count how many disagreements there were and how many of those changes blew up.
+
+Output: `HAKARI track=C (machine=C, override requested=B (recorded, not applied): hotfix reviewed live ...) ...`
+
+**A jig doesn't listen to the self-report. It writes it down next to the measurement.**
 
 ## Never
 

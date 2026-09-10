@@ -4,11 +4,11 @@
 
 A Cursor / Claude Code plugin for **Jig-Driven Development**: quality lives in machine checkpoints (*jigs*) the worker cannot bypass — not in anyone's attention, and not in the sentence "I checked it."
 
-Seven skills, one principle each, one script each. Every script has `--selftest` and `--dry-run`, returns machine-readable exit codes, and appends one JSON line to a gate log. No dependencies beyond Python 3.8+.
+Seven skills, one principle each, one script each. Every script has `--selftest` and returns machine-readable exit codes; the ones that judge or run gates (hakari, sekisho, yamedoki `--record`) append one JSON line to a gate log, and hakari / sekisho also take `--dry-run`. No dependencies beyond Python 3.8+.
 
 | Jig | Principle | One move | Script |
 |---|---|---|---|
-| **HAKARI** | No self-grading | `WEIGH` — risk track A/B/C from blast radius, reversibility, criticality. Overrides are recorded, never silent | `skills/hakari/scripts/hakari.py` |
+| **HAKARI** | No self-grading | `WEIGH` — risk track A/B/C from blast radius, reversibility, criticality. Overrides are recorded next to the verdict, never applied to it | `skills/hakari/scripts/hakari.py` |
 | **SEKISHO** | "I checked it" is not a pass | `BLOCK` — runs a tier of gates; only exit 0 passes; skipped gates are always listed | `skills/sekisho/scripts/sekisho.py` |
 | **SAKIGAKI** | The order is the jig | `WRITE FIRST` — contract before code, failing test before implementation | `skills/sakigaki/scripts/sakigaki.py` |
 | **NAMAMONO** | Hand-written tables rot | `ROT` — generate the table, stop on diff | `skills/namamono/scripts/namamono.py` |
@@ -126,7 +126,7 @@ A change to this repository is done when those lines are green. Not when someone
 
 ## 日本語
 
-ジグ駆動開発の7原理を、Cursor / Claude Code のスキル7本に落としたものです。各スキルは手順（`SKILL.md`）と最小動作スクリプトの組で、スクリプトはすべて `--selftest` と `--dry-run` を持ち、終了コードで結果を返します。設定は対象リポジトリ直下の `jig.json` 1ファイル。理論は記事「ジグ駆動開発 — AIに『気をつけて』と言うのをやめる」を参照してください。
+ジグ駆動開発の7原理を、Cursor / Claude Code のスキル7本に落としたものです。各スキルは手順（`SKILL.md`）と最小動作スクリプトの組で、スクリプトはすべて `--selftest` を持ち、終了コードで結果を返します（`--dry-run` は hakari / sekisho）。設定は対象リポジトリ直下の `jig.json` 1ファイル。理論は記事「ジグ駆動開発 — AIに『気をつけて』と言うのをやめる」を参照してください。
 
 ## License
 

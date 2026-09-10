@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.3 — 2026-09-10
+
+Six findings from an outside review of 0.1.1/0.1.2, run against the code (selftests, end-to-end probes, and the theory the plugin claims to implement). Five are fixed here; the sixth — the cited article does not exist yet — is the author's, not the code's.
+
+- **hakari: `--override` no longer changes `track`.** It recorded the machine track but *returned* the requested one, so anything downstream read the self-report — the exact thing the headline says cannot happen. Now `track` is always the machine verdict; the disagreement is kept in `override` and the render says `recorded, not applied`
+- **namamono: `--refresh` backs up before it overwrites.** The previous bytes go to `<log dir>/backup/<UTC ts>/<target>` and the path is printed. Without this the only file-writing path in the plugin failed the reversibility axiom (A3) of the method it implements
+- **sekisho: a changed file that is gone is not a missing script.** `not_installed` tokenised the expanded command, so `--changed src/deleted.py` marked hakari and sakigaki "not installed" and SKIPped them. Installed-ness is now judged on the command without `{changed}`
+- **karappo runs in the commit tier** (`jig.example.json` and this repository's `jig.json`). A run in which every gate was skipped exits 0; KARAPPO is the alarm for that, and it was only in `pr`
+- README claimed `--dry-run` and gate-log lines for every script; only hakari / sekisho have `--dry-run`, only hakari / sekisho / yamedoki `--record` write the log. README now says that
+- New contract `namamono-backup` (REQ-A3-1), written together with the code — SAKIGAKI would otherwise have refused `namamono.py`, which no contract named
+- Selftests: 61 checks (was 58)
+
 ## 0.1.2 — 2026-09-05
 
 Trial of the schema-migration item from the 0.1.1 checklist: an existing contracts registry (the one the theory was extracted from) was pointed at the jigs. It did not fit — six differences, all of them silent failures rather than errors (`name` vs `id`, `producer`/`consumers` as objects vs strings, `guard_test` as a command vs a path, `business_critical` absent, paths rooted elsewhere, and a hand-copied second table that would rot). This release makes the registry usable without copying it.
