@@ -138,22 +138,72 @@ const [contractScan, pairingScan] = await parallel([
         `3. For each declaration, search for a real enforcement artifact elsewhere in the repo (hook config, settings ` +
         `deny-list, lint rule, assertion in code, CI check) whose file content genuinely contains matching text — verify ` +
         `with grep, do not guess.\n` +
-        `4. Only include a candidate when BOTH the declaration text AND the enforcement text are verified to exist on ` +
-        `disk right now, and the pair is not already registered in pairings[]. If a declaration has no real enforcement ` +
-        `anywhere (or an enforcement has no declared rule anywhere), do NOT invent the missing side — add it to findings ` +
-        `as "sign without lock" or "lock without sign" for a human to fix, exactly like jig-auditor would report it.\n` +
+        `4. BEFORE accepting a match as a candidate, state the concrete failure scenario in your own reasoning: "if someone ` +
+        `violated this declared rule right now, which command would exit non-zero, and why?" A shared word or a generic ` +
+        `docstring line (e.g. a module's one-line description of what it does in general) is NOT enforcement — it must be ` +
+        `code/config that actually inspects the specific condition the declaration prohibits or requires, such that violating ` +
+        `the rule changes that command's exit code. Matching keywords without a real causal check is exactly the false-positive ` +
+        `KARAPPO/POKAYOKE exist to prevent, and pokayoke.py itself only does a dumb substring match — it will trust whatever you ` +
+        `register, so the discipline has to happen here.\n` +
+        `5. Only include a candidate when BOTH sides are verified AND you can state that concrete failure scenario, and the ` +
+        `pair is not already registered in pairings[]. If a declaration has no real enforcement anywhere, or you cannot state ` +
+        `a concrete failure scenario for the enforcement side, do NOT invent or stretch a match — add it to findings as ` +
+        `"sign without lock" (or "lock without sign") for a human to fix, exactly like jig-auditor would report it. When in ` +
+        `doubt, prefer findings over a candidate — a missed registration is recoverable next sweep; a bogus pairing silently ` +
+        `hides a real gap forever because pokayoke will report it OK.\n` +
         `Return JSON: candidates[] (name, declarationFile, declarationContains, enforcementFile, enforcementContains, ` +
-        `evidence citing the actual files) and findings[] (verified sign-without-lock / lock-without-sign gaps). ` +
-        `Do not edit any files.`,
+        `evidence citing the actual files AND the concrete failure scenario you stated in step 4) and findings[] (verified ` +
+        `sign-without-lock / lock-without-sign gaps). Do not edit any files.`,
       { label: 'scan-pairings', phase: 'Scan', schema: PAIRING_SCAN_SCHEMA }
     ),
 ])
 
 const contracts = contractScan ? contractScan.candidates : []
-const pairings = pairingScan ? pairingScan.candidates : []
+const rawPairings = pairingScan ? pairingScan.candidates : []
 const findings = [...(contractScan ? contractScan.findings : []), ...(pairingScan ? pairingScan.findings : [])]
 
-log(`Scan: ${contracts.length} contract candidate(s), ${pairings.length} pairing candidate(s), ${findings.length} finding(s) needing a human`)
+// --- Phase 1b: adversarial refutation of pairing candidates -----------------
+// A pairing candidate only needs both sides to CONTAIN matching text — a generic docstring
+// line or a shared keyword can satisfy that without the "enforcement" side doing anything
+// causal. pokayoke.py itself is a dumb substring match, so it will trust whatever is
+// registered here forever. One independent skeptic per candidate, told to default to
+// refuted=true when unsure, catches this before it becomes a silent false OK.
+const REFUTE_SCHEMA = {
+  type: 'object',
+  properties: { refuted: { type: 'boolean' }, reason: { type: 'string' } },
+  required: ['refuted', 'reason'],
+}
+let pairings = []
+if (rawPairings.length > 0) {
+  phase('Scan')
+  const refutations = await parallel(
+    rawPairings.map((p, i) => () =>
+      agent(
+        `Repo root: ${repoRoot}. A prior scan proposed this POKAYOKE pairing for jig.json:\n${JSON.stringify(p, null, 2)}\n\n` +
+          `Read declarationFile and enforcementFile yourself (do not trust the "evidence" text as-is). Try to REFUTE this pairing: ` +
+          `if someone violated the declared rule right now, would running/checking enforcementFile actually catch it and make ` +
+          `something exit non-zero, specifically because of that violation? A shared keyword, a generic one-line description of ` +
+          `what the file does in general, or "the words are nearby" is NOT enforcement. Default to refuted=true unless you can ` +
+          `point to a specific line that performs a causal check tied to this exact rule.`,
+        { label: `verify-pairing-${i}`, phase: 'Scan', schema: REFUTE_SCHEMA }
+      )
+    )
+  )
+  rawPairings.forEach((p, i) => {
+    const r = refutations[i]
+    if (r && !r.refuted) {
+      pairings.push(p)
+    } else {
+      findings.push(
+        `Pairing candidate "${p.name}" (declaration ${p.declarationFile} / enforcement ${p.enforcementFile}) was rejected on ` +
+          `adversarial review: ${r ? r.reason : 'verifier agent produced no result — treated as unconfirmed'}`
+      )
+    }
+  })
+  log(`Adversarial review: ${pairings.length}/${rawPairings.length} pairing candidate(s) survived`)
+}
+
+log(`Scan: ${contracts.length} contract candidate(s), ${pairings.length} verified pairing candidate(s), ${findings.length} finding(s) needing a human`)
 
 if (contracts.length === 0 && pairings.length === 0) {
   return { status: 'NOTHING_TO_REGISTER', findings }
