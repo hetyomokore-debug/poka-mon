@@ -98,6 +98,8 @@ Keys the jigs do not read (`hint`, `reads`, `notes`, …) are kept and ignored. 
 
 A `--changed` path that does not exist on disk is exit 2 for SEKISHO and SAKIGAKI, before anything runs: a path that names nothing would pass every check without being looked at. The cause is on the calling side. zsh does not split an unquoted `$files`, so a whole list arrives as one path; without `-c core.quotepath=false`, git prints a non-ASCII path as `"docs/00_\343\203\211.md"`, quotes included. A file deleted in the range is no exception — leave it out with `--diff-filter=d`, and weigh the deletion with HAKARI before you make it (HAKARI takes paths that do not exist yet, since it weighs what you *intend* to change). On an empty range, `"${(@f)…}"` yields one empty element, which is refused like any other; omit `--changed` when nothing changed.
 
+A file you are about to create cannot go in `--changed` — it does not exist yet. Name it in SAKIGAKI's `--planned`, and its contract is checked before the file is written: a planned code file that no contract names fails exactly like a changed one. The rule is the mirror image. A `--planned` path must *not* exist (an existing file goes in `--changed`), and since nothing on disk can vouch for it, it must be a plain path: whitespace, a double quote, a backslash or a control character is exit 2, because such a path cannot be told apart from several joined into one argument or from git's quoted form. SEKISHO has no `--planned`; it runs once the files exist.
+
 ## The rules (always on)
 
 - `rules/no-manual-checklists.mdc` — every check is a command that blocks

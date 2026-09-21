@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.6 — 2026-09-21
+
+SAKIGAKI checks a file before it exists — through a separate, explicit input. 0.1.5 made every `--changed` path exist on disk and stated the price: a file about to be created could not be checked at all, so its contract could only be confirmed once the code was written, which is the order SAKIGAKI exists to prevent. The `jig-fix-loop` workflow (not yet released) hit it at once: it checks the contract of every file a task will touch before implementation, and a task that creates a file stopped with exit 2.
+
+- **sakigaki `--planned FILES`**: the files the change will create (REQ-CHG-2; contract `planned-paths-absent`, written before the code). They are held to the same rules as `--changed` — a planned code file that no contract names fails, and so does a contract whose `guard_test` is not on disk yet — before the file exists, which is when the check is worth something. 0.1.5's "SAKIGAKI cannot check a file that is about to be created" no longer holds
+- **The rule is 0.1.5's mirror image.** A `--planned` path must *not* exist: an existing file goes in `--changed`, where the disk vouches for it. And it must be a plain path. Nothing on disk can vouch for a file that is not there, so its text is all there is: whitespace, a control character, a double quote or a backslash is refused, since such a path cannot be told apart from several paths joined into one argument or from git's quoted form of a non-ASCII name. An empty argument is refused too. Every unusable path is printed with its reason, nothing is checked, and the exit code is 2. A file whose name needs those characters is created first and checked with `--changed`
+- **`--changed` is untouched.** No exception was added: a `--changed` path that does not exist is refused exactly as in 0.1.5, with or without a valid `--planned` beside it
+- SEKISHO has no `--planned`: it runs once the files exist. A planned file that was never created is for the caller to stop on; SEKISHO refuses it like any other path that names nothing
+- Selftests inject nine unusable `--planned` inputs through `main()` — exists, empty, joined (with an existing file, and with new files only), quoted (git), backslash, control character, a valid path mixed with an existing one, and a nonexistent `--changed` beside a valid `--planned` — and fail unless all nine are refused. Five valid inputs must be judged as expected: covered → 0, no contract → 1, guard test not on disk → 1, a non-ASCII doc → 0, a test file → 0. Selftests: 78 checks (was 75)
+- Order kept: the contract first, then the selftests — red against 0.1.5, confirmed by `sakigaki --expect-red` — then the flag
+- Manifests at 0.1.6
+
 ## 0.1.5 — 2026-09-21
 
 A `--changed` path that does not exist is refused, not passed. Found in a downstream repository whose commit tier went green without having looked at what it was given. Two entrances, neither of them inside a gate:

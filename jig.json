@@ -106,6 +106,19 @@
       ],
       "guard_test": "skills/sekisho/scripts/sekisho.py --selftest",
       "business_critical": true
+    },
+    {
+      "id": "planned-paths-absent",
+      "producer": "skills/sakigaki/scripts/sakigaki.py",
+      "consumers": [],
+      "fields": [
+        "planned"
+      ],
+      "requirements": [
+        "REQ-CHG-2"
+      ],
+      "guard_test": "skills/sakigaki/scripts/sakigaki.py --selftest",
+      "business_critical": true
     }
   ],
   "gates": {

@@ -4,13 +4,19 @@
 Two checks:
   --changed FILES     every changed source file must be named as a producer (or consumer) in a jig.json contract,
                       and every touched contract must have `requirements` and a `guard_test` that exists on disk.
+  --planned FILES     the same, for the files the change will create — checked before they exist (with or without --changed).
   --expect-red --cmd  run the guard test and PASS only if it FAILS (red before implementation).
 
 Every path in --changed must exist on disk. If one does not (several paths joined into one argument, git's quoted
 form of a non-ASCII path, a deleted file), no file is checked: every such path is printed and the exit code is 2. A gate that
 reads a path which names nothing passes without having looked.
 
-Exit codes: 0 = pass   1 = violation (write the contract / put the failing test first)   2 = config/usage error, incl. a --changed path that does not exist
+Every path in --planned must NOT exist yet, and must be a plain path: no whitespace, double quote, backslash or control
+character. Nothing on disk can vouch for a file that is not there, so its text is all there is to check, and those
+characters make it indistinguishable from several paths joined into one argument or from git's quoted form. Otherwise
+no file is checked: every such path is printed with its reason and the exit code is 2.
+
+Exit codes: 0 = pass   1 = violation (write the contract / put the failing test first)   2 = config/usage error, incl. a --changed path that does not exist or a --planned path that does
 """
 import argparse, contextlib, fnmatch, io, json, os, shlex, subprocess, sys, tempfile
 
@@ -50,6 +56,34 @@ def refusal(jig, missing, nothing):
     if "" in missing:
         lines.append('  - an empty argument: "${(@f)$(...)}" of an empty output is one empty element; if nothing changed, omit --changed')
     return "\n".join(lines + [f"{jig} refused: {len(missing)} nonexistent path(s) in --changed; {nothing} (exit 2)"])
+
+
+def unusable_planned(planned, root="."):
+    """(path, reason) for each --planned path that cannot be planned: empty, already on disk (a directory or a dangling
+    symlink counts, as for --changed), or not a plain path. A planned file does not exist yet, so nothing on disk can
+    tell one path from several joined into one argument, or a name from git's quoted form of it: whitespace, a control
+    character, a double quote or a backslash is refused rather than guessed at."""
+    out = []
+    for f in planned:
+        if not f:
+            out.append((f, "empty argument"))
+        elif os.path.lexists(os.path.join(root, f)):
+            out.append((f, "exists — an existing file goes in --changed"))
+        elif any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in f):
+            out.append((f, "whitespace or a control character — several paths joined into one argument?"))
+        elif '"' in f or "\\" in f:
+            out.append((f, "double quote or backslash — git's quoted form of a non-ASCII path? use git -c core.quotepath=false"))
+    return out
+
+
+def planned_refusal(bad):
+    """What to print (to stderr) when --planned names paths that cannot be planned. Summary line last, as in refusal()."""
+    shown = ["  [" + f.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t") + "]  (" + why + ")" for f, why in bad]
+    lines = [f"SAKIGAKI: --planned names {len(bad)} path(s) that cannot be planned:", *shown,
+             "A planned file does not exist yet, so its text is all there is to check: it must name nothing on disk",
+             "and be a plain path. A file whose name needs whitespace, a double quote or a backslash: create it first,",
+             "then pass it in --changed."]
+    return "\n".join(lines + [f"SAKIGAKI refused: {len(bad)} unusable path(s) in --planned; no file was checked (exit 2)"])
 
 
 def matches(path, pat):
@@ -245,14 +279,85 @@ def selftest():
     finally:
         os.chdir(old_cwd)
 
+    # --planned guard (REQ-CHG-2): a file the change will create cannot go in --changed (it does not exist yet), so it
+    # is named in --planned — which must not name an existing file and must be a plain path, or nothing is checked.
+    # A planned code file is held to the same contract rules as a changed one, before it exists.
+    p_injected = p_refused = p_valid_ok = p_valid = 0
+    try:
+        with tempfile.TemporaryDirectory() as d3:
+            os.chdir(d3)
+            open("README.md", "w").close()
+            os.makedirs("src"); open(os.path.join("src", "a.py"), "w").close()
+            os.makedirs("tests"); open(os.path.join("tests", "test_c.py"), "w").close()
+            with open("jig.json", "w", encoding="utf-8") as f:
+                json.dump({"contracts": [
+                    {"id": "c1", "producer": "src/a.py", "consumers": [], "requirements": ["R-1"], "guard_test": "tests/test_c.py"},
+                    {"id": "c2", "producer": "src/c2.py", "consumers": ["src/a.py"], "requirements": ["R-2"], "guard_test": "tests/test_c.py"},
+                    {"id": "c3", "producer": "src/c3.py", "consumers": [], "requirements": ["R-3"], "guard_test": "tests/test_c3.py"}]}, f)
+
+            # each case: (name, argv after the config, paths the refusal must show, paths it must not show)
+            broken = [
+                ("exists", ["--planned", "README.md"], ["README.md"], []),
+                ("empty", ["--planned", ""], [""], []),
+                ("joined (zsh)", ["--planned", "src/new.py README.md"], ["src/new.py README.md"], []),
+                ("joined, all new", ["--planned", "src/new.py docs/new.md"], ["src/new.py docs/new.md"], []),
+                ("quoted (git)", ["--planned", '"docs/01_\\343\\203\\211.md"'], ['"docs/01_\\343\\203\\211.md"'], []),
+                ("backslash", ["--planned", "src\\new.py"], ["src\\new.py"], []),
+                ("control character", ["--planned", "src/a\tb.py"], ["src/a\\tb.py"], []),
+                ("mixed", ["--planned", "src/c2.py", "README.md"], ["README.md"], ["src/c2.py"]),
+                ("--changed still guarded", ["--changed", "src/gone.py", "--planned", "src/c2.py"], ["src/gone.py"], ["src/c2.py"]),
+            ]
+            bad = []
+            for name, argv, shown, hidden in broken:
+                p_injected += 1
+                rc, out, err = run_main(["--config", "jig.json", *argv])
+                errlines = err.splitlines()
+                ok = (rc == 2 and "SAKIGAKI ok" not in out and "SAKIGAKI FAIL" not in out
+                      and all(("[" + m + "]") in err for m in shown)
+                      and not any(("[" + m + "]") in err for m in hidden)
+                      and bool(errlines) and errlines[-1].startswith("SAKIGAKI refused:"))
+                p_refused += ok
+                if not ok:
+                    bad.append(name)
+            assert p_refused == p_injected, f"sakigaki --planned guard did not stop these broken cases: {bad}"; n += 1
+
+            # each case: (name, argv after the config, expected exit code, text that must appear in stdout)
+            valid_cases = [
+                ("planned, contract in place", ["--changed", "src/a.py", "--planned", "src/c2.py"], 0, "SAKIGAKI ok: 2 file(s)"),
+                ("planned, no contract", ["--planned", "src/nocontract.py"], 1, "SAKIGAKI FAIL src/nocontract.py: no contract names this file"),
+                ("planned, guard test missing", ["--planned", "src/c3.py"], 1, "SAKIGAKI FAIL c3: guard_test tests/test_c3.py does not exist on disk"),
+                ("planned, non-ASCII doc", ["--planned", "docs/新規.md"], 0, "SAKIGAKI ok: 1 file(s)"),
+                ("planned, test file", ["--planned", "tests/test_new.py"], 0, "SAKIGAKI ok: 1 file(s)"),
+            ]
+            for name, argv, want_rc, want in valid_cases:
+                p_valid += 1
+                rc, out, err = run_main(["--config", "jig.json", *argv])
+                ok = rc == want_rc and want in out
+                p_valid_ok += ok
+                if not ok:
+                    bad.append("valid: " + name)
+            assert p_valid_ok == p_valid, f"sakigaki valid --planned inputs misjudged: {bad}"; n += 1
+
+            # direct helper check: each unusable path is reported with its reason, a usable one is not reported
+            why = [w for _f, w in unusable_planned(["README.md", "", "src/x y.py", '"q.md"', "src/ok.py"], root=d3)]
+            assert (len(why) == 4 and why[0].startswith("exists") and why[1].startswith("empty")
+                    and why[2].startswith("whitespace") and why[3].startswith("double quote")), why; n += 1
+
+            os.chdir(old_cwd)
+    finally:
+        os.chdir(old_cwd)
+
     print(f"sakigaki selftest: {n} checks OK — --changed guard: {injected} broken inputs injected, "
-          f"{detected} refused before checking; {valid_ok}/{valid} valid inputs judged as expected")
+          f"{detected} refused before checking; {valid_ok}/{valid} valid inputs judged as expected; "
+          f"--planned guard: {p_injected} broken inputs injected, {p_refused} refused before checking; "
+          f"{p_valid_ok}/{p_valid} valid inputs judged as expected")
     return 0
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--changed", nargs="*", help="changed files (each must exist on disk)")
+    ap.add_argument("--planned", nargs="*", help="files the change will create (each must NOT exist yet, and be a plain path)")
     ap.add_argument("--expect-red", action="store_true", help="run --cmd and pass only if it fails")
     ap.add_argument("--cmd", help="guard test command for --expect-red")
     ap.add_argument("--config", default="jig.json")
@@ -266,18 +371,23 @@ def main(argv=None):
         if expect_red(a.cmd):
             print(f"SAKIGAKI red confirmed: `{a.cmd}` fails before implementation — proceed"); return EXIT_PASS
         print(f"SAKIGAKI FAIL: `{a.cmd}` is already green — the test was written after the code, so it cannot detect drift"); return EXIT_FAIL
-    if a.changed is None:
-        ap.error("--changed FILES or --expect-red --cmd is required (or --selftest)")
-    gone = missing_changed(a.changed)
+    if a.changed is None and a.planned is None:
+        ap.error("--changed FILES and/or --planned FILES, or --expect-red --cmd, is required (or --selftest)")
+    changed, planned = a.changed or [], a.planned or []
+    gone, unusable = missing_changed(changed), unusable_planned(planned)
     if gone:
         print(refusal("SAKIGAKI", gone, "no file was checked"), file=sys.stderr)
+    if unusable:
+        print(planned_refusal(unusable), file=sys.stderr)
+    if gone or unusable:
         return EXIT_CONFIG
     cfg = load_config(a.config)
-    v = check(cfg, a.changed)
+    v = check(cfg, changed + planned)
     for line in v:
         print("SAKIGAKI FAIL " + line)
     if not v:
-        print(f"SAKIGAKI ok: {len(a.changed)} file(s) covered by contracts with requirements and guard tests")
+        print(f"SAKIGAKI ok: {len(changed) + len(planned)} file(s) covered by contracts with requirements and guard tests"
+              + (f" ({len(planned)} planned, not on disk yet)" if planned else ""))
     return EXIT_FAIL if v else EXIT_PASS
 
 

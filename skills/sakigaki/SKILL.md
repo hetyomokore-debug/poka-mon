@@ -21,17 +21,19 @@ A contract written after the code merely traces the code that exists. If the cod
 ## Check that the order was kept
 
 ```
-python3 <plugin>/skills/sakigaki/scripts/sakigaki.py --changed src/orders/export.py src/new.py
+python3 <plugin>/skills/sakigaki/scripts/sakigaki.py --changed src/orders/export.py --planned src/orders/refunds.py
 python3 <plugin>/skills/sakigaki/scripts/sakigaki.py --selftest
 ```
 
-Fails when a changed source file is named by no contract, when a touched contract has no `requirements`, or when its `guard_test` (a path, or the first token of a command) does not exist on disk. Tests, docs, and `track_a_paths` are exempt; consumer-only changes pass.
+Fails when a changed or planned source file is named by no contract, when a touched contract has no `requirements`, or when its `guard_test` (a path, or the first token of a command) does not exist on disk. Tests, docs, and `track_a_paths` are exempt; consumer-only changes pass.
 
-Every path given to `--changed` must exist on disk. One that does not — several paths joined into one argument, git's quoted form of a non-ASCII path, a deleted file — stops SAKIGAKI with exit 2 before anything is checked, because a path that names nothing matches no contract and would pass. So a file you are about to create cannot be checked here yet: its contract comes first (step 1), then the file, then this check.
+Every path given to `--changed` must exist on disk. One that does not — several paths joined into one argument, git's quoted form of a non-ASCII path, a deleted file — stops SAKIGAKI with exit 2 before anything is checked, because a path that names nothing matches no contract and would pass.
+
+A file you are about to create goes in `--planned`, not `--changed`: its contract is checked before the file exists, which is when the check is worth something. A `--planned` path must not exist yet (an existing file goes in `--changed`) and must be a plain path — whitespace, a double quote, a backslash or a control character stops SAKIGAKI with exit 2, because nothing on disk can tell such a path from several joined into one argument or from git's quoted form. A file whose name needs those characters: create it first, then pass it in `--changed`.
 
 ## Never
 
 - Never write the code and then "add the contract to match". That contract is decoration.
 - Never register a `guard_test` that does not exist yet as if it did.
 
-Exit codes: `0` pass · `1` violation · `2` config/usage error, including a `--changed` path that does not exist.
+Exit codes: `0` pass · `1` violation · `2` config/usage error, including a `--changed` path that does not exist and a `--planned` path that does (or is not a plain path).

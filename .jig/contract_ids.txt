@@ -3,3 +3,4 @@ gate-log
 hakari-log
 jig-config-contracts
 namamono-backup
+planned-paths-absent
