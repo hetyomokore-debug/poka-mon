@@ -91,6 +91,21 @@
       ],
       "guard_test": "skills/namamono/scripts/namamono.py --selftest",
       "business_critical": true
+    },
+    {
+      "id": "changed-paths-exist",
+      "producer": "skills/sekisho/scripts/sekisho.py",
+      "consumers": [
+        "skills/sakigaki/scripts/sakigaki.py"
+      ],
+      "fields": [
+        "changed"
+      ],
+      "requirements": [
+        "REQ-CHG-1"
+      ],
+      "guard_test": "skills/sekisho/scripts/sekisho.py --selftest",
+      "business_critical": true
     }
   ],
   "gates": {

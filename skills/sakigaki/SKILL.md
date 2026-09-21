@@ -27,9 +27,11 @@ python3 <plugin>/skills/sakigaki/scripts/sakigaki.py --selftest
 
 Fails when a changed source file is named by no contract, when a touched contract has no `requirements`, or when its `guard_test` (a path, or the first token of a command) does not exist on disk. Tests, docs, and `track_a_paths` are exempt; consumer-only changes pass.
 
+Every path given to `--changed` must exist on disk. One that does not — several paths joined into one argument, git's quoted form of a non-ASCII path, a deleted file — stops SAKIGAKI with exit 2 before anything is checked, because a path that names nothing matches no contract and would pass. So a file you are about to create cannot be checked here yet: its contract comes first (step 1), then the file, then this check.
+
 ## Never
 
 - Never write the code and then "add the contract to match". That contract is decoration.
 - Never register a `guard_test` that does not exist yet as if it did.
 
-Exit codes: `0` pass · `1` violation · `2` config/usage error.
+Exit codes: `0` pass · `1` violation · `2` config/usage error, including a `--changed` path that does not exist.

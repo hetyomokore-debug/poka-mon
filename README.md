@@ -29,8 +29,11 @@ cp <plugin>/jig.example.json jig.json      # edit contracts / gates / pairings f
 # 2. see what the commit tier would run (executes nothing)
 python3 <plugin>/skills/sekisho/scripts/sekisho.py --tier commit --dry-run
 
-# 3. run it for real
+# 3. run it for real — every path in --changed must exist on disk (exit 2 otherwise)
 python3 <plugin>/skills/sekisho/scripts/sekisho.py --tier commit --changed src/thing.py
+#    the changed files from git, in zsh: one element per path, quotepath off, deletions left out
+files=("${(@f)$(git -c core.quotepath=false diff --name-only --diff-filter=d BASE HEAD)}")
+python3 <plugin>/skills/sekisho/scripts/sekisho.py --tier commit --changed "${files[@]}"
 
 # 4. prove the jigs themselves work
 for s in hakari sekisho sakigaki namamono karappo pokayoke yamedoki; do
@@ -92,6 +95,8 @@ Keys the jigs do not read (`hint`, `reads`, `notes`, …) are kept and ignored. 
 | `1` | a gate or check failed |
 | `2` | config or usage error — never treated as a pass |
 | `3` | HOLLOW (KARAPPO only): a check has nothing left to check |
+
+A `--changed` path that does not exist on disk is exit 2 for SEKISHO and SAKIGAKI, before anything runs: a path that names nothing would pass every check without being looked at. The cause is on the calling side. zsh does not split an unquoted `$files`, so a whole list arrives as one path; without `-c core.quotepath=false`, git prints a non-ASCII path as `"docs/00_\343\203\211.md"`, quotes included. A file deleted in the range is no exception — leave it out with `--diff-filter=d`, and weigh the deletion with HAKARI before you make it (HAKARI takes paths that do not exist yet, since it weighs what you *intend* to change). On an empty range, `"${(@f)…}"` yields one empty element, which is refused like any other; omit `--changed` when nothing changed.
 
 ## The rules (always on)
 

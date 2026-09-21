@@ -5,9 +5,13 @@ Runs the gates registered for a tier in jig.json, in order, and reports one line
 A gate whose command refers to a script that is not installed is SKIPPED and LISTED — never silently dropped,
 so a green run never pretends to have covered what it did not run.
 
-Exit codes: 0 = all executed gates passed   1 = at least one gate failed   2 = config/usage error
+Every path in --changed must exist on disk. If one does not (several paths joined into one argument, git's quoted
+form of a non-ASCII path, a deleted file), no gate runs: every such path is printed and the exit code is 2. A gate that
+reads a path which names nothing passes without having looked.
+
+Exit codes: 0 = all executed gates passed   1 = at least one gate failed   2 = config/usage error, incl. a --changed path that does not exist
 """
-import argparse, datetime, json, os, shlex, subprocess, sys, tempfile, time
+import argparse, contextlib, datetime, io, json, os, shlex, subprocess, sys, tempfile, time
 
 EXIT_PASS, EXIT_FAIL, EXIT_CONFIG = 0, 1, 2
 PLUGIN_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
@@ -21,6 +25,29 @@ def load_config(path):
         sys.exit(f"config error: {path} not found (copy jig.example.json to jig.json)")
     except json.JSONDecodeError as e:
         sys.exit(f"config error: {path}: {e}")
+
+
+def missing_changed(changed, root="."):
+    """--changed paths that do not exist on disk. A directory or a dangling symlink exists (git lists both);
+    an empty argument does not (os.path.join(root, "") would otherwise resolve to the root itself)."""
+    return [f for f in changed if not f or not os.path.lexists(os.path.join(root, f))]
+
+
+def refusal(jig, missing, nothing):
+    """What to print (to stderr) when --changed names paths that do not exist. The summary line comes last,
+    so a caller that shows only the last line of output still shows why."""
+    shown = ["  [" + f.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t") + "]" + ("" if f else "  (empty argument)")
+             for f in missing]
+    lines = [f"{jig}: --changed names {len(missing)} path(s) that do not exist on disk:", *shown,
+             "Common causes:",
+             "  - several paths joined into one argument (zsh does not split an unquoted $files), or git's quoted",
+             '    form of a non-ASCII path ("docs/00_\\343\\203\\211.md"). In zsh, build an array and pass it quoted:',
+             '      files=("${(@f)$(git -c core.quotepath=false diff --name-only BASE HEAD)}")',
+             '      ... --changed "${files[@]}"',
+             "  - a file deleted in the range rightly does not exist: leave it out with git diff --diff-filter=d"]
+    if "" in missing:
+        lines.append('  - an empty argument: "${(@f)$(...)}" of an empty output is one empty element; if nothing changed, omit --changed')
+    return "\n".join(lines + [f"{jig} refused: {len(missing)} nonexistent path(s) in --changed; {nothing} (exit 2)"])
 
 
 def append_log(cfg, record, root="."):
@@ -109,14 +136,97 @@ def selftest():
             assert "tier 'release' not defined" in str(e); n += 1
         os.makedirs(os.path.join(d, "tests"))
         assert plan(cfg, "commit", [], root=d)[3]["skip"] is None; n += 1
-    print(f"sekisho selftest: {n} checks OK")
+
+    # --changed guard (REQ-CHG-1): every path in --changed must exist on disk, or nothing runs.
+    # Exercise the real CLI entry point end-to-end, from a fresh cwd (main() reads --config and
+    # writes the log relative to cwd, not to an explicit root).
+    old_cwd = os.getcwd()
+    injected = detected = valid_passed = valid = 0
+    try:
+        with tempfile.TemporaryDirectory() as d2:
+            os.chdir(d2)
+            open("README.md", "w").close(); open("CHANGELOG.md", "w").close()
+            os.makedirs("src"); open(os.path.join("src", "a.py"), "w").close()
+            os.makedirs("docs"); open(os.path.join("docs", "00_ド.md"), "w").close()
+            with open("jig.json", "w", encoding="utf-8") as f:
+                json.dump({"log": "log.jsonl", "gates": {"commit": [
+                    {"name": "mark", "cmd": "touch ran.marker"}, {"name": "chg", "cmd": "true {changed}"}]}}, f)
+
+            def run_main(argv):
+                out, err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                    try:
+                        rc = main(argv)
+                    except SystemExit as e:
+                        rc = e.code
+                return rc, out.getvalue(), err.getvalue()
+
+            # each case: (name, --changed argv values, expected missing paths, extra argv)
+            broken = [
+                ("joined (zsh)", ["README.md CHANGELOG.md"], ["README.md CHANGELOG.md"], []),
+                ("quoted (git)", ['"docs/00_\\343\\203\\211.md"'], ['"docs/00_\\343\\203\\211.md"'], []),
+                ("absent", ["src/gone.py"], ["src/gone.py"], []),
+                ("empty", [""], [""], []),
+                ("mixed", ["src/a.py", "src/gone.py"], ["src/gone.py"], []),
+                ("dry run", ["README.md CHANGELOG.md"], ["README.md CHANGELOG.md"], ["--dry-run"]),
+            ]
+            bad = []
+            for name, case, missing, extra in broken:   # all broken cases run BEFORE any valid case
+                injected += 1
+                for p in ("ran.marker", "log.jsonl"):
+                    if os.path.exists(p):
+                        os.remove(p)
+                rc, _out, err = run_main(["--tier", "commit", "--config", "jig.json", "--changed", *case] + extra)
+                errlines = err.splitlines()
+                ok = (rc == 2 and not os.path.exists("ran.marker") and not os.path.exists("log.jsonl")
+                      and all(("[" + m + "]") in err for m in missing)
+                      and (name != "mixed" or "[src/a.py]" not in err)
+                      and bool(errlines) and errlines[-1].startswith("SEKISHO refused:"))
+                detected += ok
+                if not ok:
+                    bad.append(name)
+            assert detected == injected, f"sekisho --changed guard did not stop these broken cases: {bad}"; n += 1
+
+            valid = 2
+            rc, _out, err = run_main(["--tier", "commit", "--config", "jig.json", "--changed",
+                                      "README.md", "src/a.py", "docs/00_ド.md"])
+            passed = rc == 0 and os.path.exists("ran.marker") and os.path.exists("log.jsonl")
+            if passed:
+                with open("log.jsonl", encoding="utf-8") as f:
+                    last = json.loads(f.readlines()[-1])
+                passed = last.get("changed") == ["README.md", "src/a.py", "docs/00_ド.md"]
+            valid_passed += passed
+            if not passed:
+                bad.append("valid: full changed list")
+
+            for p in ("ran.marker", "log.jsonl"):
+                if os.path.exists(p):
+                    os.remove(p)
+            rc, _out, err = run_main(["--tier", "commit", "--config", "jig.json"])
+            valid_passed += (rc == 0)
+            if rc != 0:
+                bad.append("valid: no --changed")
+
+            assert valid_passed == valid, f"sekisho valid --changed inputs regressed: {bad}"; n += 1
+
+            # direct helper checks
+            assert missing_changed(["README.md", "", "src/gone.py", "src"], root=d2) == ["", "src/gone.py"]; n += 1
+            os.symlink("nowhere", os.path.join(d2, "dangling"))
+            assert missing_changed(["dangling"], root=d2) == []; n += 1
+
+            os.chdir(old_cwd)
+    finally:
+        os.chdir(old_cwd)
+
+    print(f"sekisho selftest: {n} checks OK — --changed guard: {injected} broken inputs injected, "
+          f"{detected} stopped before any gate; {valid_passed}/{valid} valid inputs passed")
     return 0
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--tier", help="commit | pr | release (as defined in jig.json)")
-    ap.add_argument("--changed", nargs="*", default=[], help="changed files, substituted into {changed}")
+    ap.add_argument("--changed", nargs="*", default=[], help="changed files (each must exist on disk), substituted into {changed}")
     ap.add_argument("--config", default="jig.json")
     ap.add_argument("--timeout", type=int, default=600, help="per-gate timeout in seconds")
     ap.add_argument("--dry-run", action="store_true", help="show what would run; execute nothing; log nothing")
@@ -126,6 +236,10 @@ def main(argv=None):
         return selftest()
     if not a.tier:
         ap.error("--tier is required (or use --selftest)")
+    gone = missing_changed(a.changed)
+    if gone:
+        print(refusal("SEKISHO", gone, "no gate was run"), file=sys.stderr)
+        return EXIT_CONFIG
     cfg = load_config(a.config)
     entries = plan(cfg, a.tier, a.changed, config_path=a.config)
     if a.dry_run:

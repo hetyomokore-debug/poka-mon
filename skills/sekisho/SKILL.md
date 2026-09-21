@@ -33,6 +33,7 @@ Paste the summary line in your report. Quote the FAIL line verbatim; never parap
 ## Rules the gatekeeper lives by
 
 - **A skipped gate is listed, every time.** Gates whose script is not installed are excluded from the plan and *named* in the output. A green run that skipped something is not a full pass, and the output says so.
+- **A `--changed` path that does not exist stops the run.** No gate runs and nothing is skipped: every such path is printed and the exit code is 2. A gate handed a path that names nothing passes without having looked. The usual causes are on the calling side — several paths joined into one argument (zsh does not split an unquoted `$files`), or git's quoted form of a non-ASCII path (`"docs/00_\343\203\211.md"`). From git, in zsh: `files=("${(@f)$(git -c core.quotepath=false diff --name-only --diff-filter=d BASE HEAD)}")`, then `--changed "${files[@]}"`. A file deleted in the range is no exception; `--diff-filter=d` leaves it out.
 - **Keep the commit tier under ~15 seconds.** Past that, people route around it (YAMEDOKI will show you the bypass rate). Move heavy gates to `pr` or `release`.
 - **A permanently red gate dies.** If a gate cannot pass by design, fix the gate or retire it via YAMEDOKI — do not leave it red, and do not remove it silently.
 - **Every run is logged** to `log` in `jig.json` as one JSON line: tier, per-gate result, failures, unavailable gates.
@@ -48,4 +49,4 @@ Paste the summary line in your report. Quote the FAIL line verbatim; never parap
 
 `{plugin}` expands to the plugin root, `{changed}` to the quoted changed files, `{config}` to the config path in use. `requires` names a path that must exist for the gate to be considered installed.
 
-Exit codes: `0` all executed gates passed · `1` a gate failed · `2` config/usage error.
+Exit codes: `0` all executed gates passed · `1` a gate failed · `2` config/usage error, including a `--changed` path that does not exist.

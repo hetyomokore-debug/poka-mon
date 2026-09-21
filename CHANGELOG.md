@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.5 — 2026-09-21
+
+A `--changed` path that does not exist is refused, not passed. Found in a downstream repository whose commit tier went green without having looked at what it was given. Two entrances, neither of them inside a gate:
+
+- **The shell.** zsh does not split an unquoted `$files`, so `sekisho.py --tier commit --changed $files` delivered a whole list of changed files as one argument. SAKIGAKI saw a single path that named nothing, matched no contract, and passed — and a new source file whose contract was missing went through. The gate log showed it: `changed` held one element with every path inside it, separated by spaces.
+- **git.** Without `-c core.quotepath=false`, `git diff --name-only` prints a non-ASCII path as `"docs/00_\343\203\211.md"` — the quotes and the octal escapes are part of the output. The list splits correctly, but each such element names nothing, and the gates passed without a word.
+
+Both are KARAPPO's enemy — green without having looked — reached from the calling side. As long as a gate that reads `--changed` lets a path that names nothing through, one line written differently by the caller hollows it out.
+
+- **sekisho, sakigaki: every `--changed` path must exist on disk** (REQ-CHG-1; contract `changed-paths-exist`, written before the code). If one does not, SEKISHO runs no gate (`--dry-run` included) and SAKIGAKI checks nothing; every such path is printed with the two usual causes and the zsh idiom that avoids both, and the exit code is 2. A refusal, not a SKIP: a skip is the hollow gate this closes. A directory or a dangling symlink exists (git lists both); an empty argument does not. A refused run writes nothing to the gate log, like any other usage error
+- **A deleted file gets no exception.** It rightly does not exist; the caller leaves it out with `git diff --diff-filter=d`. An exception inside the gate would be the next entrance. The cost, stated: a gate fed from `{changed}` no longer sees deletions. SAKIGAKI loses nothing by it (a deleted file needs no contract). HAKARI, in the example commit tier, weighs a deletion where `jig-mode` already puts it — before the edit, while the file still exists; HAKARI itself keeps accepting paths that do not exist yet, since it weighs what you intend to change. 0.1.3's "a changed file that is gone is not a missing script" still holds inside `plan()`; `main()` now stops before planning
+- **SAKIGAKI cannot check a file that is about to be created**: it does not exist yet, so `--changed` refuses it. The contract comes first, then the file, then the check; the SKILL says so now
+- The zsh idiom in the message and the README — `files=("${(@f)$(git -c core.quotepath=false diff --name-only BASE HEAD)}")`, passed as `"${files[@]}"` — yields one empty element on an empty range. That element is refused like any other path that names nothing; omit `--changed` when nothing changed
+- Selftests inject every entrance through `main()` — joined (zsh), quoted (git), absent, empty, a real path mixed with an absent one, and (sekisho) a dry run — print how many were injected against how many were stopped, and fail unless the two are equal. Real paths must still pass, and SAKIGAKI must still find the missing contract that the joined argument hid. Selftests: 75 checks (was 65)
+- Order kept: the contract first, then the selftests — red against the unguarded scripts, confirmed by `sakigaki --expect-red` — then the guard
+- Manifests at 0.1.5. The plugin entry in `marketplace.json` had stayed at 0.1.3 through 0.1.4; it matches now
+
 ## 0.1.4 — 2026-09-10
 
 Cursor Marketplace submission prep.

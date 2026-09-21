@@ -6,9 +6,13 @@ Two checks:
                       and every touched contract must have `requirements` and a `guard_test` that exists on disk.
   --expect-red --cmd  run the guard test and PASS only if it FAILS (red before implementation).
 
-Exit codes: 0 = pass   1 = violation (write the contract / put the failing test first)   2 = config/usage error
+Every path in --changed must exist on disk. If one does not (several paths joined into one argument, git's quoted
+form of a non-ASCII path, a deleted file), no file is checked: every such path is printed and the exit code is 2. A gate that
+reads a path which names nothing passes without having looked.
+
+Exit codes: 0 = pass   1 = violation (write the contract / put the failing test first)   2 = config/usage error, incl. a --changed path that does not exist
 """
-import argparse, fnmatch, json, os, shlex, subprocess, sys, tempfile
+import argparse, contextlib, fnmatch, io, json, os, shlex, subprocess, sys, tempfile
 
 EXIT_PASS, EXIT_FAIL, EXIT_CONFIG = 0, 1, 2
 DEFAULT_CODE_EXT = [".py", ".js", ".ts", ".tsx", ".go", ".rs", ".rb", ".java", ".kt", ".swift", ".sh"]
@@ -23,6 +27,29 @@ def load_config(path):
         sys.exit(f"config error: {path} not found (copy jig.example.json to jig.json)")
     except json.JSONDecodeError as e:
         sys.exit(f"config error: {path}: {e}")
+
+
+def missing_changed(changed, root="."):
+    """--changed paths that do not exist on disk. A directory or a dangling symlink exists (git lists both);
+    an empty argument does not (os.path.join(root, "") would otherwise resolve to the root itself)."""
+    return [f for f in changed if not f or not os.path.lexists(os.path.join(root, f))]
+
+
+def refusal(jig, missing, nothing):
+    """What to print (to stderr) when --changed names paths that do not exist. The summary line comes last,
+    so a caller that shows only the last line of output still shows why."""
+    shown = ["  [" + f.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t") + "]" + ("" if f else "  (empty argument)")
+             for f in missing]
+    lines = [f"{jig}: --changed names {len(missing)} path(s) that do not exist on disk:", *shown,
+             "Common causes:",
+             "  - several paths joined into one argument (zsh does not split an unquoted $files), or git's quoted",
+             '    form of a non-ASCII path ("docs/00_\\343\\203\\211.md"). In zsh, build an array and pass it quoted:',
+             '      files=("${(@f)$(git -c core.quotepath=false diff --name-only BASE HEAD)}")',
+             '      ... --changed "${files[@]}"',
+             "  - a file deleted in the range rightly does not exist: leave it out with git diff --diff-filter=d"]
+    if "" in missing:
+        lines.append('  - an empty argument: "${(@f)$(...)}" of an empty output is one empty element; if nothing changed, omit --changed')
+    return "\n".join(lines + [f"{jig} refused: {len(missing)} nonexistent path(s) in --changed; {nothing} (exit 2)"])
 
 
 def matches(path, pat):
@@ -140,13 +167,92 @@ def selftest():
         assert guard_file("qa/check.py --selftest") == "qa/check.py" and guard_file("tests/t.py") == "tests/t.py"; n += 1
         vm = check({"contracts": [{"id": "c", "producer": "qa/reg.json", "requirements": ["R"], "guard_test": "qa/missing.py --selftest"}]}, ["qa/reg.json"], d)
         assert len(vm) == 1 and "does not exist" in vm[0]; n += 1
-    print(f"sakigaki selftest: {n} checks OK")
+
+    # --changed guard (REQ-CHG-1): every path in --changed must exist on disk, or nothing is checked.
+    old_cwd = os.getcwd()
+    injected = detected = valid_ok = valid = 0
+    try:
+        with tempfile.TemporaryDirectory() as d2:
+            os.chdir(d2)
+            open("README.md", "w").close(); open("CHANGELOG.md", "w").close()
+            os.makedirs("src")
+            open(os.path.join("src", "a.py"), "w").close()
+            open(os.path.join("src", "new.py"), "w").close()
+            os.makedirs("docs"); open(os.path.join("docs", "00_ド.md"), "w").close()
+            os.makedirs("tests"); open(os.path.join("tests", "test_a.py"), "w").close()
+            cfg2 = {"contracts": [{"id": "c1", "producer": "src/a.py", "consumers": [],
+                                   "requirements": ["R-1"], "guard_test": "tests/test_a.py"}]}
+            with open("jig.json", "w", encoding="utf-8") as f:
+                json.dump(cfg2, f)
+
+            # hole demonstration on check() itself (unchanged): a joined argument that happens to end
+            # in a non-code extension slips past every producer/consumer test; split properly, the
+            # same missing contract is found. This is why the guard below exists.
+            assert check(cfg2, ["src/new.py README.md"], d2) == []; n += 1
+            assert len(check(cfg2, ["src/new.py", "README.md"], d2)) == 1; n += 1
+
+            def run_main(argv):
+                out, err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                    try:
+                        rc = main(argv)
+                    except SystemExit as e:
+                        rc = e.code
+                return rc, out.getvalue(), err.getvalue()
+
+            broken = [
+                ("joined (zsh)", ["src/new.py README.md"], ["src/new.py README.md"]),
+                ("quoted (git)", ['"docs/00_\\343\\203\\211.md"'], ['"docs/00_\\343\\203\\211.md"']),
+                ("absent", ["src/gone.py"], ["src/gone.py"]),
+                ("empty", [""], [""]),
+                ("mixed", ["src/a.py", "src/gone.py"], ["src/gone.py"]),
+            ]
+            bad = []
+            for name, case, missing in broken:
+                injected += 1
+                rc, out, err = run_main(["--config", "jig.json", "--changed", *case])
+                errlines = err.splitlines()
+                ok = (rc == 2 and "SAKIGAKI ok" not in out and "SAKIGAKI FAIL" not in out
+                      and all(("[" + m + "]") in err for m in missing)
+                      and (name != "mixed" or "[src/a.py]" not in err)
+                      and bool(errlines) and errlines[-1].startswith("SAKIGAKI refused:"))
+                detected += ok
+                if not ok:
+                    bad.append(name)
+            assert detected == injected, f"sakigaki --changed guard did not stop these broken cases: {bad}"; n += 1
+
+            valid = 2
+            rc, out, err = run_main(["--config", "jig.json", "--changed", "src/a.py", "README.md", "docs/00_ド.md"])
+            ok1 = rc == 0 and "SAKIGAKI ok" in out
+            valid_ok += ok1
+            if not ok1:
+                bad.append("valid: covered files")
+
+            rc, out, err = run_main(["--config", "jig.json", "--changed", "src/new.py", "README.md"])
+            ok2 = rc == 1 and "SAKIGAKI FAIL src/new.py: no contract names this file" in out
+            valid_ok += ok2
+            if not ok2:
+                bad.append("valid: missing contract")
+
+            assert valid_ok == valid, f"sakigaki valid --changed inputs regressed: {bad}"; n += 1
+
+            # direct helper checks
+            assert missing_changed(["README.md", "", "src/gone.py", "src"], root=d2) == ["", "src/gone.py"]; n += 1
+            os.symlink("nowhere", os.path.join(d2, "dangling"))
+            assert missing_changed(["dangling"], root=d2) == []; n += 1
+
+            os.chdir(old_cwd)
+    finally:
+        os.chdir(old_cwd)
+
+    print(f"sakigaki selftest: {n} checks OK — --changed guard: {injected} broken inputs injected, "
+          f"{detected} refused before checking; {valid_ok}/{valid} valid inputs judged as expected")
     return 0
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--changed", nargs="*", help="changed files")
+    ap.add_argument("--changed", nargs="*", help="changed files (each must exist on disk)")
     ap.add_argument("--expect-red", action="store_true", help="run --cmd and pass only if it fails")
     ap.add_argument("--cmd", help="guard test command for --expect-red")
     ap.add_argument("--config", default="jig.json")
@@ -162,6 +268,10 @@ def main(argv=None):
         print(f"SAKIGAKI FAIL: `{a.cmd}` is already green — the test was written after the code, so it cannot detect drift"); return EXIT_FAIL
     if a.changed is None:
         ap.error("--changed FILES or --expect-red --cmd is required (or --selftest)")
+    gone = missing_changed(a.changed)
+    if gone:
+        print(refusal("SAKIGAKI", gone, "no file was checked"), file=sys.stderr)
+        return EXIT_CONFIG
     cfg = load_config(a.config)
     v = check(cfg, a.changed)
     for line in v:
