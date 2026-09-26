@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Copyright holder and manifest author/owner are now **Team hetyomokore** (`LICENSE`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/plugin.json`). No code change
+
 ## 0.1.6 — 2026-09-21
 
 SAKIGAKI checks a file before it exists — through a separate, explicit input. 0.1.5 made every `--changed` path exist on disk and stated the price: a file about to be created could not be checked at all, so its contract could only be confirmed once the code was written, which is the order SAKIGAKI exists to prevent. The `jig-fix-loop` workflow (not yet released) hit it at once: it checks the contract of every file a task will touch before implementation, and a task that creates a file stopped with exit 2.
